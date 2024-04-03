@@ -37,6 +37,10 @@ impl CPU {
     const CMP_N: u8 = 0xFE;
     // XOR
     const XOR_R: u8 = 0xA8;
+    // LOAD
+    const LD_R_R: u8 = 0x41;
+    const LD_R_N: u8 = 0x06;
+    const LD_R_HL: u8 = 0x46;
 
     pub fn new() -> Self {
         Self {
@@ -155,6 +159,30 @@ impl CPU {
                 debug!("SUB/CMP instruction");
                 self.display_registers();
             }
+            Self::LD_R_R | Self::LD_R_HL | Self::LD_R_N => {
+                let value = match opcode {
+                    Self::LD_R_R => self.c,
+                    Self::LD_R_HL => {
+                        let addr = self.get_hl();
+                        memory.read_byte(addr)
+                    }
+                    Self::LD_R_N => {
+                        let val = memory.read_byte(self.pc);
+                        self.pc += 1;
+                        val
+                    }
+                    _ => panic!("Will never happen"),
+                };
+                self.b = value;
+            }
+            Self::XOR_R => {
+                let result = self.a ^ self.b;
+                self.a = result;
+                self.clear_all_flags();
+                if result == 0 {
+                    self.set_flag(Self::ZERO_FLAG);
+                }
+            }
             _ => {
                 debug!("Unknown opcode {}", opcode);
                 unimplemented!()
@@ -184,9 +212,5 @@ impl CPU {
 
     pub fn clear_all_flags(&mut self) {
         self.f = 0;
-    }
-
-    pub fn set_register(&mut self) {
-        // for testing purposes
     }
 }

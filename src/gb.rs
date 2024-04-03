@@ -1,4 +1,8 @@
-use crate::{cpu::CPU, memory::Memory};
+use crate::{
+    cpu::CPU,
+    graphics::{self, Graphics},
+    memory::Memory,
+};
 
 pub struct GameBoy {
     cpu: CPU,
@@ -17,6 +21,9 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
+        // initialize
+        let graphics = Graphics::new();
+
         loop {
             self.cpu.execute(&mut self.memory);
 
@@ -26,5 +33,4 @@ impl GameBoy {
             // run audio
         }
     }
-
 }

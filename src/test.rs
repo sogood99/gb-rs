@@ -53,4 +53,19 @@ mod tests {
 
         assert_eq!(cpu.a, 0x30);
     }
+
+    #[test]
+    fn test_xor_instruction() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xA8]);
+
+        cpu.a = 0b11001100;
+        cpu.b = 0b10101010;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.a, 0b01100110);
+    }
 }
