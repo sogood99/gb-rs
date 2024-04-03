@@ -1,6 +1,7 @@
 use std::fs;
 
 use clap::{App, Arg};
+use gb_rs::gb::GameBoy;
 use log::{debug, info};
 
 fn main() -> Result<(), String> {
@@ -30,5 +31,10 @@ fn main() -> Result<(), String> {
             return Err(String::from("Unable to read file"));
         }
     };
+
+    let mut gameboy = GameBoy::new();
+    gameboy.load_rom(rom_file);
+    gameboy.run();
+
     Ok(())
 }
