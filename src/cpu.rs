@@ -706,7 +706,35 @@ impl SizedInstruction {
                 }
             }
         } else {
-            return None;
+            let b = (opcode >> 3) & 0b111;
+            let r = Register::get_r(opcode & 0b111);
+            match opcode >> 6 {
+                1 => {
+                    // BIT x,r
+                    if r == Register::HL {
+                        Instruction::BIT_HL(b)
+                    } else {
+                        Instruction::BIT(b, r)
+                    }
+                }
+                2 => {
+                    // RES x,r
+                    if r == Register::HL {
+                        Instruction::RES_HL(b)
+                    } else {
+                        Instruction::RES(b, r)
+                    }
+                }
+                3 => {
+                    // SET x,r
+                    if r == Register::HL {
+                        Instruction::SET_HL(b)
+                    } else {
+                        Instruction::SET(b, r)
+                    }
+                }
+                _ => panic!("Should not be contain any other cases"),
+            }
         };
         Some(SizedInstruction {
             instruction,
