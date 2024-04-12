@@ -202,34 +202,63 @@ pub enum Instruction {
     /// Add to stack pointer (relative)
     ADD_SP_E(SignedByte),
 
-    /// --------UNFINISHED----------
+    /// -------------UNFINISHED------------
     /// Rotate left circular (accumulator)
+    RLCA,
     /// Rotate right circular (accumulator)
+    RRCA,
     /// Rotate left (accumulator)
+    RLA,
     /// Rotate right (accumulator)
+    RRA,
+    /// -------------UNFINISHED------------
+
+    /// --------CB Prefix----------
     /// Rotate left circular (register)
+    RLC(Register),
     /// Rotate left circular (indirect HL)
+    RLC_HL,
     /// Rotate right circular (register)
+    RRC(Register),
     /// Rotate right circular (indirect HL)
+    RRC_HL,
     /// Rotate left (register)
+    RL(Register),
     /// Rotate left (indirect HL)
+    RL_HL,
     /// Rotate right (register)
+    RR(Register),
     /// Rotate right (indirect HL)
+    RR_HL,
     /// Shift left arithmetic (register)
+    SLA(Register),
     /// Shift left arithmetic (indirect HL)
+    SLA_HL,
     /// Shift right arithmetic (register)
+    SRA(Register),
     /// Shift right arithmetic (indirect HL)
+    SRA_HL,
     /// Swap nibbles (register)
+    SWAP(Register),
     /// Swap nibbles (indirect HL)
+    SWAP_HL,
     /// Shift right logical (register)
+    SRL(Register),
     /// Shift right logical (indirect HL)
+    SRL_HL,
     /// Test bit (register)
+    BIT(Byte, Register),
     /// Test bit (indirect HL)
+    BIT_HL(Byte),
     /// Reset bit (register)
+    RES(Byte, Register),
     /// Reset bit (indirect HL)
+    RES_HL(Byte),
     /// Set bit (register)
+    SET(Byte, Register),
     /// Set bit (indirect HL)
-    /// --------UNFINISHED----------
+    SET_HL(Byte),
+    /// --------CB Prefix----------
 
     /// Unconditional jump
     JP_NN(Address),
@@ -346,12 +375,15 @@ impl SizedInstruction {
     /// Relative Jump conditional
     const JR_CC: OpCode = OpCode(0b00100000, 0b11111111);
     /// Add 16 bit register
-    const ADD_HL_RR: OpCode = OpCode(0b00001001, 0b11001111);
+    const ADD_HL_RR: OpCode = OpCode(0b0000_1001, 0b1100_1111);
     /// Add SP e
-    const ADD_SP_E: OpCode = OpCode(0b11101000, 0b11111111);
+    const ADD_SP_E: OpCode = OpCode(0b1110_1000, 0b1111_1111);
     /// DAA
-    const DAA: OpCode = OpCode(0x27, 0b11111111);
+    const DAA: OpCode = OpCode(0x27, 0b1111_1111);
+    /// Rotate accumulator
+    const ROT_ACC: OpCode = OpCode(0b0000_0111, 0b1110_0111);
     /// CB Prefixed Opcodes
+    const CB: OpCode = OpCode(0xCB, 0b1111_1111);
 
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
@@ -576,6 +608,20 @@ impl SizedInstruction {
         } else if Self::ADD_SP_E.matches(opcode) {
             let e = memory.read_byte(address + 1)? as SignedByte;
             (Instruction::ADD_SP_E(e), 2)
+        } else if Self::ROT_ACC.matches(opcode) {
+            let instruction = match opcode & (1 << 3) > 0 {
+                true => match opcode & (1 << 4) > 0 {
+                    true => Instruction::RRA,
+                    false => Instruction::RRCA,
+                },
+                false => match opcode & (1 << 4) > 0 {
+                    true => Instruction::RLA,
+                    false => Instruction::RLCA,
+                },
+            };
+            (instruction, 1)
+        } else if Self::CB.matches(opcode) {
+            panic!("Havent implemented CB-Prefixed codes yet")
         } else {
             return None;
         };

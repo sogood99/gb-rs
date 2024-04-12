@@ -1172,6 +1172,70 @@ mod tests {
     }
 
     #[test]
+    fn decode_rra() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x1F]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RRA,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rrca() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x0F]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RRCA,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rla() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x17]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RLA,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rlca() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x07]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RLCA,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
     fn execute_addr() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
