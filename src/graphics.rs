@@ -12,7 +12,7 @@ impl Graphics {
             .expect("could not initialize video subsystem");
 
         let window = video_subsystem
-            .window("rust-sdl2 demo", 800, 600)
+            .window("GameBoy Emulator", 800, 600)
             .position_centered()
             .build()
             .expect("could not initialize video subsystem");

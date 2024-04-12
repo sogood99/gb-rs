@@ -33,7 +33,7 @@ fn main() -> Result<(), String> {
     };
 
     let mut gameboy = GameBoy::new();
-    // gameboy.load_rom(rom_file);
+    gameboy.load_rom(rom_file);
     gameboy.run();
 
     Ok(())

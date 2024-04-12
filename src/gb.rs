@@ -1,8 +1,4 @@
-use crate::{
-    cpu::CPU,
-    graphics::{self, Graphics},
-    memory::Memory,
-};
+use crate::{cpu::CPU, graphics::Graphics, memory::Memory};
 
 pub struct GameBoy {
     cpu: CPU,
@@ -16,6 +12,7 @@ impl GameBoy {
             memory: Memory::new(),
         }
     }
+
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
         self.memory.load_rom(rom_data);
     }
