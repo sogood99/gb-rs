@@ -1236,6 +1236,150 @@ mod tests {
     }
 
     #[test]
+    fn decode_rlc() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x01]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RLC(Register::C),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rl() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x12]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RL(Register::D),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_sla() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x24]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::SLA(Register::H),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_slahl() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x26]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::SLA_HL,
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_swap() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x35]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::SWAP(Register::L),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rrc() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x08]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RRC(Register::B),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_rr() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x1b]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::RR(Register::E),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_sra() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x2c]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::SRA(Register::H),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn decode_srl() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x3f]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::SRL(Register::A),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
     fn execute_addr() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();

@@ -201,8 +201,6 @@ pub enum Instruction {
     ADD_HL_RR(Register16),
     /// Add to stack pointer (relative)
     ADD_SP_E(SignedByte),
-
-    /// -------------UNFINISHED------------
     /// Rotate left circular (accumulator)
     RLCA,
     /// Rotate right circular (accumulator)
@@ -211,7 +209,6 @@ pub enum Instruction {
     RLA,
     /// Rotate right (accumulator)
     RRA,
-    /// -------------UNFINISHED------------
 
     /// --------CB Prefix----------
     /// Rotate left circular (register)
@@ -371,9 +368,9 @@ impl SizedInstruction {
     /// Jump Conditional
     const JP_CC: OpCode = OpCode(0b11000010, 0b11100111);
     /// Relative Jump
-    const JR: OpCode = OpCode(0b00011000, 0b11111111);
+    const JR: OpCode = OpCode(0b0001_1000, 0b1111_1111);
     /// Relative Jump conditional
-    const JR_CC: OpCode = OpCode(0b00100000, 0b11111111);
+    const JR_CC: OpCode = OpCode(0b0010_0000, 0b1111_1111);
     /// Add 16 bit register
     const ADD_HL_RR: OpCode = OpCode(0b0000_1001, 0b1100_1111);
     /// Add SP e
@@ -384,6 +381,8 @@ impl SizedInstruction {
     const ROT_ACC: OpCode = OpCode(0b0000_0111, 0b1110_0111);
     /// CB Prefixed Opcodes
     const CB: OpCode = OpCode(0xCB, 0b1111_1111);
+    /// CB Prefixed Opcodes for RLC, RL, SLA, SWAP, RRC, etc
+    const CB1: OpCode = OpCode(0b0000_0000, 0b1100_0000);
 
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
@@ -621,11 +620,98 @@ impl SizedInstruction {
             };
             (instruction, 1)
         } else if Self::CB.matches(opcode) {
-            panic!("Havent implemented CB-Prefixed codes yet")
+            let sized_instruction = Self::decode_cb(memory, address + 1);
+            return match sized_instruction {
+                Some(mut instruction) => {
+                    instruction.size += 1;
+                    Some(instruction)
+                }
+                None => None,
+            };
         } else {
             return None;
         };
         Some(SizedInstruction { instruction, size })
+    }
+
+    /// Decode CB-Prefixed instructions
+    fn decode_cb(memory: &mut Memory, address: Address) -> Option<Self> {
+        let opcode = memory.read_byte(address)?;
+        debug!("CB-Prefixed OpCode: {:#04X?}", opcode);
+        let r = Register::get_r(opcode);
+        let instruction = if Self::CB1.matches(opcode) {
+            if opcode & (1 << 3) > 0 {
+                match opcode.get_high_nibble() {
+                    0 => {
+                        if r == Register::HL {
+                            Instruction::RRC_HL
+                        } else {
+                            Instruction::RRC(r)
+                        }
+                    }
+                    1 => {
+                        if r == Register::HL {
+                            Instruction::RR_HL
+                        } else {
+                            Instruction::RR(r)
+                        }
+                    }
+                    2 => {
+                        if r == Register::HL {
+                            Instruction::SRA_HL
+                        } else {
+                            Instruction::SRA(r)
+                        }
+                    }
+                    3 => {
+                        if r == Register::HL {
+                            Instruction::SRL_HL
+                        } else {
+                            Instruction::SRL(r)
+                        }
+                    }
+                    _ => panic!("Nibble should not be > 4"),
+                }
+            } else {
+                match opcode.get_high_nibble() {
+                    0 => {
+                        if r == Register::HL {
+                            Instruction::RLC_HL
+                        } else {
+                            Instruction::RLC(r)
+                        }
+                    }
+                    1 => {
+                        if r == Register::HL {
+                            Instruction::RL_HL
+                        } else {
+                            Instruction::RL(r)
+                        }
+                    }
+                    2 => {
+                        if r == Register::HL {
+                            Instruction::SLA_HL
+                        } else {
+                            Instruction::SLA(r)
+                        }
+                    }
+                    3 => {
+                        if r == Register::HL {
+                            Instruction::SWAP_HL
+                        } else {
+                            Instruction::SWAP(r)
+                        }
+                    }
+                    _ => panic!("Nibble should not be > 4"),
+                }
+            }
+        } else {
+            return None;
+        };
+        Some(SizedInstruction {
+            instruction,
+            size: 1,
+        })
     }
 }
 
