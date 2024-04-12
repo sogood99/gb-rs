@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info};
 
 use crate::{
     memory::Memory,
@@ -351,10 +351,12 @@ impl SizedInstruction {
     const ADD_SP_E: OpCode = OpCode(0b11101000, 0b11111111);
     /// DAA
     const DAA: OpCode = OpCode(0x27, 0b11111111);
+    /// CB Prefixed Opcodes
 
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
+        debug!("Opcode: {:#04X?}", opcode);
         let (instruction, size) = if Self::NOP.matches(opcode) {
             (Instruction::NOP, 1)
         } else if Self::LD1.matches(opcode) {
@@ -419,7 +421,7 @@ impl SizedInstruction {
             };
             (instruction, 1)
         } else if Self::LD7.matches(opcode) {
-            let rr = Register16::get_rr(opcode >> 3, true);
+            let rr = Register16::get_rr(opcode >> 4, true);
             let nn = memory.read_word(address + 1)?;
             let instruction = Instruction::LD_RR_NN(rr, nn);
             (instruction, 3)
@@ -644,8 +646,7 @@ impl CPU {
 
     pub fn execute(&mut self, memory: &mut Memory) -> Option<()> {
         let instruction = SizedInstruction::decode(memory, self.pc)?;
-        debug!("Decoded Instruction: {:?}", instruction);
-        println!("Decoded Instruction: {:?}", instruction);
+        debug!("Decoded Instruction: {:#04X?}", instruction);
 
         match instruction.instruction {
             Instruction::NOP => (),
@@ -670,7 +671,9 @@ impl CPU {
                 }
                 self.display_registers();
             }
-            _ => panic!("Unimplemented instruction"),
+            _ => {
+                info!("Unimplemented instruction");
+            }
         }
 
         self.pc += instruction.size;

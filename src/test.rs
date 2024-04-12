@@ -328,6 +328,22 @@ mod tests {
     }
 
     #[test]
+    fn decode_ldspnn() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x31, 0x10, 0x20]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::LD_RR_NN(Register16::SP, 0x2010),
+                size: 3
+            }
+        )
+    }
+
+    #[test]
     fn decode_ldnnsp() {
         let mut memory = Memory::new();
 
