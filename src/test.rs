@@ -1109,21 +1109,54 @@ mod tests {
     fn decode_rst() {
         let mut memory = Memory::new();
 
-        let n = 0x20;
-        memory.load_rom(vec![0xDF, n]);
+        memory.load_rom(vec![0xDF]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
             instr,
             SizedInstruction {
-                instruction: Instruction::RST(n),
+                instruction: Instruction::RST(0x18),
+                size: 1
+            }
+        )
+    }
+
+    #[test]
+    fn decode_addhlrr() {
+        let mut memory = Memory::new();
+
+        let e = 255;
+        memory.load_rom(vec![0xE8, e]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::ADD_SP_E(-1),
                 size: 2
             }
         )
     }
 
     #[test]
-    fn addr_instruction() {
+    fn decode_addspe() {
+        let mut memory = Memory::new();
+
+        let e = 255;
+        memory.load_rom(vec![0xE8, e]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::ADD_SP_E(-1),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
+    fn execute_addr() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
 
@@ -1141,7 +1174,7 @@ mod tests {
     }
 
     #[test]
-    fn add_hl_instruction() {
+    fn execute_addhl() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
 
@@ -1161,7 +1194,7 @@ mod tests {
     }
 
     #[test]
-    fn add_n_instruction() {
+    fn execute_addn() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
 
@@ -1175,7 +1208,7 @@ mod tests {
     }
 
     #[test]
-    fn xor_instruction() {
+    fn execute_xor() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
 

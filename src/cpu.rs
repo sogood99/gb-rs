@@ -52,13 +52,13 @@ impl Register {
 
 impl Register16 {
     /// Assumes the register values are 0bxx, output the corresponding reg/regpair
-    pub fn get_rr(code: Byte, push_pop: bool) -> Self {
+    pub fn get_rr(code: Byte, sp: bool) -> Self {
         match code.mask(0b11) {
             0 => Self::BC,
             1 => Self::DE,
             2 => Self::HL,
-            3 if !push_pop => Self::SP,
-            3 if push_pop => Self::AF,
+            3 if sp => Self::SP,
+            3 if !sp => Self::AF,
             c @ _ => panic!("Unknown Register {} for code {}", c, code),
         }
     }
@@ -70,6 +70,18 @@ pub enum Condition {
     Zero,
     NotCarry,
     Carry,
+}
+
+impl Condition {
+    pub fn get_cond(code: Byte) -> Self {
+        match code & 0b11 {
+            0 => Self::NonZero,
+            1 => Self::Zero,
+            2 => Self::NotCarry,
+            3 => Self::Carry,
+            _ => panic!("Unknown Conditonal Code {}", code & 0b11),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -307,6 +319,38 @@ impl SizedInstruction {
     const ARITH_OP_N: OpCode = OpCode(0b11000110, 0b11001111);
     /// Aritmetic OP with carry such as ADC, SBC using N
     const ARITH_OP_C_N: OpCode = OpCode(0b11001110, 0b11001111);
+    /// Increment and decrement operators on register
+    const INC_DEC_R: OpCode = OpCode(0b00000100, 0b11000110);
+    /// Carry flag operations
+    const CARRY: OpCode = OpCode(0b00110111, 0b11110111);
+    /// Increment and decrement operators on register 16
+    const INC_DEC_RR: OpCode = OpCode(0b00000011, 0b11000111);
+    /// Call function
+    const CALL: OpCode = OpCode(0b11000100, 0b11100110);
+    /// Return
+    const RET: OpCode = OpCode(0b11001001, 0b11111111);
+    /// Return conditional
+    const RET_CC: OpCode = OpCode(0b11000000, 0b11100111);
+    /// Return interrupt
+    const RETI: OpCode = OpCode(0b11011001, 0b11111111);
+    /// Restart
+    const RST: OpCode = OpCode(0b11000111, 0b11000111);
+    /// Jump
+    const JP: OpCode = OpCode(0b11000011, 0b11111111);
+    /// Jump HL
+    const JP_HL: OpCode = OpCode(0b11101001, 0b11111111);
+    /// Jump Conditional
+    const JP_CC: OpCode = OpCode(0b11000010, 0b11100111);
+    /// Relative Jump
+    const JR: OpCode = OpCode(0b00011000, 0b11111111);
+    /// Relative Jump conditional
+    const JR_CC: OpCode = OpCode(0b00100000, 0b11111111);
+    /// Add 16 bit register
+    const ADD_HL_RR: OpCode = OpCode(0b00001001, 0b11001111);
+    /// Add SP e
+    const ADD_SP_E: OpCode = OpCode(0b11101000, 0b11111111);
+    /// DAA
+    const DAA: OpCode = OpCode(0x27, 0b11111111);
 
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
@@ -374,7 +418,7 @@ impl SizedInstruction {
             };
             (instruction, 1)
         } else if Self::LD7.matches(opcode) {
-            let rr = Register16::get_rr(opcode >> 3, false);
+            let rr = Register16::get_rr(opcode >> 3, true);
             let nn = memory.read_word(address + 1)?;
             let instruction = Instruction::LD_RR_NN(rr, nn);
             (instruction, 3)
@@ -390,7 +434,7 @@ impl SizedInstruction {
                 (Instruction::LD_HL_SP(e), 2)
             }
         } else if Self::PUSH_POP.matches(opcode) {
-            let rr = Register16::get_rr(opcode >> 4, true);
+            let rr = Register16::get_rr(opcode >> 4, false);
             if opcode & (1 << 2) != 0 {
                 (Instruction::PUSH(rr), 1)
             } else {
@@ -444,6 +488,91 @@ impl SizedInstruction {
                 _ => panic!("Unknown combination, should never happen"),
             };
             (instruction, 2)
+        } else if Self::INC_DEC_R.matches(opcode) {
+            let r = Register::get_r(opcode >> 3);
+            let instruction = if opcode & 1 == 0 {
+                // increment
+                match r {
+                    Register::HL => Instruction::INC_HL,
+                    r => Instruction::INC_R(r),
+                }
+            } else {
+                match r {
+                    Register::HL => Instruction::DEC_HL,
+                    r => Instruction::DEC_R(r),
+                }
+            };
+            (instruction, 1)
+        } else if Self::CARRY.matches(opcode) {
+            let instruction = if opcode & (1 << 3) != 0 {
+                Instruction::CCF
+            } else {
+                Instruction::SCF
+            };
+
+            (instruction, 1)
+        } else if Self::INC_DEC_RR.matches(opcode) {
+            let rr = Register16::get_rr(opcode >> 4, true);
+            let instruction = if opcode & (1 << 3) != 0 {
+                Instruction::DEC_RR(rr)
+            } else {
+                Instruction::INC_RR(rr)
+            };
+
+            (instruction, 1)
+        } else if Self::INC_DEC_RR.matches(opcode) {
+            let rr = Register16::get_rr(opcode >> 4, true);
+            let instruction = if opcode & (1 << 3) != 0 {
+                Instruction::DEC_RR(rr)
+            } else {
+                Instruction::INC_RR(rr)
+            };
+
+            (instruction, 1)
+        } else if Self::CALL.matches(opcode) {
+            let nn = memory.read_word(address + 1)?;
+            let instruction = if opcode & 1 != 0 {
+                // ret
+                Instruction::CALL(nn)
+            } else {
+                let cc = Condition::get_cond(opcode >> 3);
+                Instruction::CALL_CC(cc, nn)
+            };
+            (instruction, 3)
+        } else if Self::RET.matches(opcode) {
+            (Instruction::RET, 1)
+        } else if Self::RET_CC.matches(opcode) {
+            let cc = Condition::get_cond(opcode >> 3);
+            (Instruction::RET_CC(cc), 1)
+        } else if Self::RETI.matches(opcode) {
+            (Instruction::RETI, 1)
+        } else if Self::RST.matches(opcode) {
+            let n = (opcode >> 3) & 0b111;
+            (Instruction::RST(n * 8), 1)
+        } else if Self::JP.matches(opcode) {
+            let nn = memory.read_word(address + 1)?;
+            (Instruction::JP_NN(nn), 3)
+        } else if Self::JP_HL.matches(opcode) {
+            (Instruction::JP_HL, 1)
+        } else if Self::JP_CC.matches(opcode) {
+            let cc = Condition::get_cond(opcode >> 3);
+            let nn = memory.read_word(address + 1)?;
+            (Instruction::JP_CC_NN(cc, nn), 3)
+        } else if Self::JR.matches(opcode) {
+            let n = memory.read_byte(address + 1)?;
+            (Instruction::JR(n as SignedByte), 2)
+        } else if Self::JR_CC.matches(opcode) {
+            let cc = Condition::get_cond(opcode >> 3);
+            let n = memory.read_byte(address + 1)?;
+            (Instruction::JR_CC(cc, n as SignedByte), 2)
+        } else if Self::DAA.matches(opcode) {
+            (Instruction::DAA, 1)
+        } else if Self::ADD_HL_RR.matches(opcode) {
+            let rr = Register16::get_rr(opcode >> 4, true);
+            (Instruction::ADD_HL_RR(rr), 1)
+        } else if Self::ADD_SP_E.matches(opcode) {
+            let e = memory.read_byte(address + 1)? as SignedByte;
+            (Instruction::ADD_SP_E(e), 2)
         } else {
             return None;
         };
