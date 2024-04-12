@@ -274,7 +274,7 @@ pub enum Instruction {
 #[derive(Debug, PartialEq, Eq)]
 pub struct SizedInstruction {
     pub instruction: Instruction,
-    pub size: usize,
+    pub size: Word,
 }
 
 /// OpCode template with its effective fields
@@ -352,6 +352,7 @@ impl SizedInstruction {
     /// DAA
     const DAA: OpCode = OpCode(0x27, 0b11111111);
 
+    /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
         let (instruction, size) = if Self::NOP.matches(opcode) {
@@ -581,24 +582,24 @@ impl SizedInstruction {
 }
 
 pub struct CPU {
-    pub a: u8,
-    pub b: u8,
-    pub c: u8,
-    pub d: u8,
-    pub e: u8,
-    pub h: u8,
-    pub l: u8,
-    pub f: u8,   // flag
-    pub sp: u16, // stack pointer
-    pub pc: u16, // program counter
+    pub a: Byte,
+    pub b: Byte,
+    pub c: Byte,
+    pub d: Byte,
+    pub e: Byte,
+    pub h: Byte,
+    pub l: Byte,
+    pub f: Byte,  // flag
+    pub sp: Word, // stack pointer
+    pub pc: Word, // program counter
 }
 
 impl CPU {
     // ----- flags -----
-    const ZERO_FLAG: u8 = 0b10000000;
-    const SUBTRACT_FLAG: u8 = 0b01000000;
-    const HALF_CARRY_FLAG: u8 = 0b00100000;
-    const CARRY_FLAG: u8 = 0b00010000;
+    const ZERO_FLAG: Byte = 0b10000000;
+    const SUBTRACT_FLAG: Byte = 0b01000000;
+    const HALF_CARRY_FLAG: Byte = 0b00100000;
+    const CARRY_FLAG: Byte = 0b00010000;
 
     pub fn new() -> Self {
         Self {
@@ -611,7 +612,20 @@ impl CPU {
             l: 0,
             f: 0x00,
             sp: 0xFFFE,
-            pc: 0x0100, // currently start at 0x0100,
+            pc: 0x0, // currently start at 0x00,
+        }
+    }
+
+    fn get_register(&mut self, reg: Register) -> &mut Byte {
+        match reg {
+            Register::A => &mut self.a,
+            Register::B => &mut self.b,
+            Register::C => &mut self.c,
+            Register::D => &mut self.d,
+            Register::E => &mut self.e,
+            Register::H => &mut self.h,
+            Register::L => &mut self.l,
+            Register::HL => panic!("Unknown register HL"),
         }
     }
 
@@ -628,10 +642,41 @@ impl CPU {
         debug!("SP: {:04X}\tPC: {:04X}", self.sp, self.pc);
     }
 
-    pub fn execute(&mut self, memory: &mut Memory) {
-        unimplemented!()
-        // let opcode = memory.read_byte(self.pc);
-        // self.pc += 1;
+    pub fn execute(&mut self, memory: &mut Memory) -> Option<()> {
+        let instruction = SizedInstruction::decode(memory, self.pc)?;
+        debug!("Decoded Instruction: {:?}", instruction);
+        println!("Decoded Instruction: {:?}", instruction);
+
+        match instruction.instruction {
+            Instruction::NOP => (),
+            Instruction::ADD_R(r) => {
+                let reg_val = *self.get_register(r);
+                let (result, overflow) = self.a.overflowing_add(reg_val);
+                self.a = result;
+
+                // Update flags
+                self.clear_flag(Self::ZERO_FLAG);
+                self.clear_flag(Self::SUBTRACT_FLAG);
+                self.clear_flag(Self::HALF_CARRY_FLAG);
+
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                if result == 0 {
+                    self.set_flag(Self::ZERO_FLAG);
+                }
+                if (self.a & 0x0F) + (self.b & 0x0F) > 0x0F {
+                    self.set_flag(Self::HALF_CARRY_FLAG);
+                }
+                self.display_registers();
+            }
+            _ => panic!("Unimplemented instruction"),
+        }
+
+        self.pc += instruction.size;
+
+        Some(())
+
         // match opcode {
         //     // NOP instruction (0x00)
         //     Self::NOP => {

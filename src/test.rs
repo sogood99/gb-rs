@@ -1160,6 +1160,7 @@ mod tests {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
 
+        cpu.pc = 0;
         memory.load_rom(vec![0x80]);
 
         // Set initial register values

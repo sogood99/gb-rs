@@ -19,12 +19,15 @@ impl GameBoy {
 
     pub fn run(mut self) {
         // initialize
-        let graphics = Graphics::new();
+        // let graphics = Graphics::new();
 
         loop {
-            self.cpu.execute(&mut self.memory);
+            let res = self.cpu.execute(&mut self.memory);
 
-            self.cpu.handle_interrupts(&mut self.memory);
+            match res {
+                Some(()) => self.cpu.handle_interrupts(&mut self.memory),
+                None => return,
+            }
 
             // render graphics
             // run audio
