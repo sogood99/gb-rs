@@ -75,10 +75,15 @@ pub enum Condition {
 #[derive(Debug, PartialEq, Eq)]
 #[allow(non_camel_case_types)]
 pub enum Instruction {
+    /// Load register (register)
     LD_R_R(Register, Register),
+    /// Load register (immediate)
     LD_R_N(Register, Byte),
+    /// Load register (indirect HL)
     LD_R_HL(Register),
+    /// Load from register (indirect HL)
     LD_HL_R(Register),
+    /// Load from immediate data (indirect HL)
     LD_HL_N(Byte),
     /// Load accumulator BC
     LD_A_BC,
@@ -120,46 +125,138 @@ pub enum Instruction {
     PUSH(Register16),
     /// Pop from stack
     POP(Register16),
+    /// Add (register)
     ADD_R(Register),
+    /// Add (indirect HL)
     ADD_HL,
+    /// Add (immediate)
     ADD_N(Byte),
-    ADC_R,
-    ADC_HL(Address),
-    ADC_N(Address),
+    /// Subtract (register)
     SUB_R(Register),
+    /// Subtract (indirect HL)
     SUB_HL,
+    /// Subtract (immediate)
     SUB_N(Byte),
-    SBC_R,
-    SBC_HL(Address),
-    SBC_N(Address),
-    CP_R(Register),
-    CP_HL,
-    CP_N(Byte),
-    INC_R(Register),
-    INC_HL,
-    DEC_R(Register),
-    DEC_HL,
+    /// And (register)
     AND_R(Register),
+    /// And (indirect HL)
     AND_HL,
+    /// And (immediate)
     AND_N(Byte),
+    /// Or (register)
     OR_R(Register),
+    /// Or (indirect HL)
     OR_HL,
+    /// Or (immediate)
     OR_N(Byte),
+    /// Add with carry (register)
+    ADC_R(Register),
+    /// Add with carry (indirect HL)
+    ADC_HL,
+    /// Add with carry (immediate)
+    ADC_N(Byte),
+    /// Subtract with carry (register)
+    SBC_R(Register),
+    /// Subtract with carry (indirect HL)
+    SBC_HL,
+    /// Subtract with carry (immediate)
+    SBC_N(Byte),
+    /// XOR with carry (register)
     XOR_R(Register),
+    /// XOR with carry (indirect HL)
     XOR_HL,
+    /// XOR with carry (immediate)
     XOR_N(Byte),
+    /// Compare with carry (register)
+    CP_R(Register),
+    /// Compare with carry (indirect HL)
+    CP_HL,
+    /// Compare with carry (immediate)
+    CP_N(Byte),
+    /// Increment (register)
+    INC_R(Register),
+    /// Increment (register 16)
+    INC_RR(Register16),
+    /// Increment (indirect HL)
+    INC_HL,
+    /// Decrement (register)
+    DEC_R(Register),
+    /// Decrement (register 16)
+    DEC_RR(Register16),
+    /// Dncrement (indirect HL)
+    DEC_HL,
+    /// Add (16-bit register)
+    ADD_HL_RR(Register16),
+    /// Add to stack pointer (relative)
+    ADD_SP_E(SignedByte),
+
+    /// --------UNFINISHED----------
+    /// Rotate left circular (accumulator)
+    /// Rotate right circular (accumulator)
+    /// Rotate left (accumulator)
+    /// Rotate right (accumulator)
+    /// Rotate left circular (register)
+    /// Rotate left circular (indirect HL)
+    /// Rotate right circular (register)
+    /// Rotate right circular (indirect HL)
+    /// Rotate left (register)
+    /// Rotate left (indirect HL)
+    /// Rotate right (register)
+    /// Rotate right (indirect HL)
+    /// Shift left arithmetic (register)
+    /// Shift left arithmetic (indirect HL)
+    /// Shift right arithmetic (register)
+    /// Shift right arithmetic (indirect HL)
+    /// Swap nibbles (register)
+    /// Swap nibbles (indirect HL)
+    /// Shift right logical (register)
+    /// Shift right logical (indirect HL)
+    /// Test bit (register)
+    /// Test bit (indirect HL)
+    /// Reset bit (register)
+    /// Reset bit (indirect HL)
+    /// Set bit (register)
+    /// Set bit (indirect HL)
+    /// --------UNFINISHED----------
+
+    /// Unconditional jump
     JP_NN(Address),
+    /// Jump to hl
     JP_HL,
+    /// Conditional Jump to nn
     JP_CC_NN(Condition, Address),
-    JP_E(Byte),
-    JR_CC_E(Condition, Byte),
-    CALL_NN(Address),
-    CALL_CC_NN(Condition, Address),
+    /// Relative Jump
+    JR(SignedByte),
+    /// Conditional Relative Jump
+    JR_CC(Condition, SignedByte),
+    /// Call function
+    CALL(Address),
+    /// Call function conditional
+    CALL_CC(Condition, Address),
+    /// Return from function
     RET,
+    /// Return from function conditional
     RET_CC(Condition),
+    /// Return from interrupt handler
+    RETI,
+    /// Restart / Call function (implied)
+    RST(Byte),
+    /// Complement carry flag
+    CCF,
+    /// Set carry flag
+    SCF,
+    /// Decimal Adjust Accumulator
+    DAA,
+    /// Complement Accumulator
+    CPL,
+    /// Enable interrupt
     EI,
+    /// Disable interrupt
+    DI,
+    /// No operation
     NOP,
     HALT,
+    STOP,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -202,6 +299,14 @@ impl SizedInstruction {
     const LD9: OpCode = OpCode(0b11111000, 0b11111110);
     /// PUSH or POP
     const PUSH_POP: OpCode = OpCode(0b11000001, 0b11001011);
+    /// Aritmetic OP such as ADD, SUB
+    const ARITH_OP_R: OpCode = OpCode(0b10000000, 0b11001000);
+    /// Aritmetic OP with carry such as ADC, SBC
+    const ARITH_OP_C_R: OpCode = OpCode(0b10001000, 0b11001000);
+    /// Aritmetic OP such as ADD, SUB using N
+    const ARITH_OP_N: OpCode = OpCode(0b11000110, 0b11001111);
+    /// Aritmetic OP with carry such as ADC, SBC using N
+    const ARITH_OP_C_N: OpCode = OpCode(0b11001110, 0b11001111);
 
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
@@ -291,6 +396,54 @@ impl SizedInstruction {
             } else {
                 (Instruction::POP(rr), 1)
             }
+        } else if Self::ARITH_OP_R.matches(opcode) {
+            let r = Register::get_r(opcode);
+            let instruction = match (opcode.get_high_nibble(), r) {
+                (8, Register::HL) => Instruction::ADD_HL,
+                (8, r) => Instruction::ADD_R(r),
+                (9, Register::HL) => Instruction::SUB_HL,
+                (9, r) => Instruction::SUB_R(r),
+                (0xa, Register::HL) => Instruction::AND_HL,
+                (0xa, r) => Instruction::AND_R(r),
+                (0xb, Register::HL) => Instruction::OR_HL,
+                (0xb, r) => Instruction::OR_R(r),
+                _ => panic!("Unknown combination, should never happen"),
+            };
+            (instruction, 1)
+        } else if Self::ARITH_OP_C_R.matches(opcode) {
+            let r = Register::get_r(opcode);
+            let instruction = match (opcode.get_high_nibble(), r) {
+                (8, Register::HL) => Instruction::ADC_HL,
+                (8, r) => Instruction::ADC_R(r),
+                (9, Register::HL) => Instruction::SBC_HL,
+                (9, r) => Instruction::SBC_R(r),
+                (0xa, Register::HL) => Instruction::XOR_HL,
+                (0xa, r) => Instruction::XOR_R(r),
+                (0xb, Register::HL) => Instruction::CP_HL,
+                (0xb, r) => Instruction::CP_R(r),
+                _ => panic!("Unknown combination, should never happen"),
+            };
+            (instruction, 1)
+        } else if Self::ARITH_OP_N.matches(opcode) {
+            let n = memory.read_byte(address + 1)?;
+            let instruction = match opcode.get_high_nibble() {
+                0xc => Instruction::ADD_N(n),
+                0xd => Instruction::SUB_N(n),
+                0xe => Instruction::AND_N(n),
+                0xf => Instruction::OR_N(n),
+                _ => panic!("Unknown combination, should never happen"),
+            };
+            (instruction, 2)
+        } else if Self::ARITH_OP_C_N.matches(opcode) {
+            let n = memory.read_byte(address + 1)?;
+            let instruction = match opcode.get_high_nibble() {
+                0xc => Instruction::ADC_N(n),
+                0xd => Instruction::SBC_N(n),
+                0xe => Instruction::XOR_N(n),
+                0xf => Instruction::CP_N(n),
+                _ => panic!("Unknown combination, should never happen"),
+            };
+            (instruction, 2)
         } else {
             return None;
         };
