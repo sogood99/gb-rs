@@ -1026,6 +1026,22 @@ mod tests {
     }
 
     #[test]
+    fn decode_jrz() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x28, 0xff]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::JR_CC(Condition::Zero, -1),
+                size: 2
+            }
+        )
+    }
+
+    #[test]
     fn decode_jrcc() {
         let mut memory = Memory::new();
 

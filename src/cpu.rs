@@ -366,11 +366,11 @@ impl SizedInstruction {
     /// Jump HL
     const JP_HL: OpCode = OpCode(0b11101001, 0b11111111);
     /// Jump Conditional
-    const JP_CC: OpCode = OpCode(0b11000010, 0b11100111);
+    const JP_CC: OpCode = OpCode(0b1100_0010, 0b1110_0111);
     /// Relative Jump
     const JR: OpCode = OpCode(0b0001_1000, 0b1111_1111);
     /// Relative Jump conditional
-    const JR_CC: OpCode = OpCode(0b0010_0000, 0b1111_1111);
+    const JR_CC: OpCode = OpCode(0b0010_0000, 0b1110_0111);
     /// Add 16 bit register
     const ADD_HL_RR: OpCode = OpCode(0b0000_1001, 0b1100_1111);
     /// Add SP e
@@ -806,7 +806,10 @@ impl CPU {
 
     pub fn execute(&mut self, memory: &mut Memory) -> Option<()> {
         let instruction = SizedInstruction::decode(memory, self.pc)?;
-        debug!("Decoded Instruction: {:#04X?}", instruction);
+        debug!(
+            "Decoded Instruction: {:?} {:#04X?}",
+            instruction, instruction
+        );
 
         match instruction.instruction {
             Instruction::NOP => (),
