@@ -817,12 +817,37 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
+            Instruction::ADD_N(n) => {
+                let (result, overflow) = self.a.overflowing_add(n);
+                self.zero_flag(result);
+                self.half_carry_flag_add(self.a, n);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = result;
+                self.pc += instruction.size;
+            }
             Instruction::SUB_R(r) => {
                 let reg_val = self.get_register(r);
                 let (result, overflow) = self.a.overflowing_sub(reg_val);
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, reg_val);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::SUB_N(n) => {
+                let (result, overflow) = self.a.overflowing_sub(n);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(self.a, n);
                 self.set_flag(Self::SUBTRACT_FLAG);
                 self.reset_flag(Self::CARRY_FLAG);
                 if overflow {
@@ -856,6 +881,15 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
+            Instruction::XOR_HL => {
+                let val = memory.read_byte(self.get_hl()).unwrap();
+                let result = self.a ^ val;
+                self.zero_flag(result);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::HALF_CARRY_FLAG);
+                self.a = result;
+                self.pc += instruction.size;
+            }
             Instruction::CP_N(n) => {
                 let (result, overflow) = self.a.overflowing_sub(n);
 
@@ -877,6 +911,11 @@ impl CPU {
                 self.set_register(r, n);
                 self.pc += instruction.size;
             }
+            Instruction::LD_R_HL(r) => {
+                let data = memory.read_byte(self.get_hl()).unwrap();
+                self.set_register(r, data);
+                self.pc += instruction.size;
+            }
             Instruction::LD_RR_NN(rr, nn) => {
                 self.set_register16(rr, nn);
                 self.pc += instruction.size;
@@ -893,11 +932,6 @@ impl CPU {
                 memory.write_byte(address, self.a);
                 self.pc += instruction.size;
             }
-            Instruction::LD_HL_A_D => {
-                memory.write_byte(self.get_hl(), self.a);
-                self.set_hl(self.get_hl() - 1);
-                self.pc += instruction.size;
-            }
             Instruction::LDH_C_A => {
                 let address = bytes2word(self.c, 0xFF);
                 memory.write_byte(address, self.a);
@@ -907,6 +941,16 @@ impl CPU {
                 let address = self.get_hl();
                 let data = self.get_register(r);
                 memory.write_byte(address, data);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_HL_A_D => {
+                memory.write_byte(self.get_hl(), self.a);
+                self.set_hl(self.get_hl() - 1);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_HL_A_I => {
+                memory.write_byte(self.get_hl(), self.a);
+                self.set_hl(self.get_hl() + 1);
                 self.pc += instruction.size;
             }
             Instruction::LD_A_DE => {
