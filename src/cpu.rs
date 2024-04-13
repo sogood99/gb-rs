@@ -1079,6 +1079,39 @@ impl CPU {
                 self.sp += 1;
                 self.pc = bytes2word(lsb, msb);
             }
+            Instruction::RR(r) => {
+                let reg_val = self.get_register(r);
+                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let result = (reg_val >> 1) | (old_carry << 7);
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if reg_val & 1 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::RRA => {
+                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let result = (self.a >> 1) | (old_carry << 7);
+                self.reset_all_flags();
+                if self.a & 1 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::SRL(r) => {
+                let reg_val = self.get_register(r);
+                let result = reg_val >> 1;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if reg_val & 1 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
             Instruction::EI => {
                 self.ime = true;
                 self.pc += instruction.size;
