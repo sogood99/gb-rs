@@ -1,6 +1,6 @@
 use log::debug;
 
-use crate::utils::{to_word, Address, Byte, ByteOP, Word};
+use crate::utils::{bytes2word, Address, Byte, ByteOP, Word};
 
 const MEMORY_SIZE: usize = 0x10000;
 
@@ -39,7 +39,7 @@ impl Memory {
     pub fn read_word(&self, address: Address) -> Option<Word> {
         let address = address as usize;
         if address + 1 < self.memory.len() {
-            Some(to_word(self.memory[address], self.memory[address + 1]))
+            Some(bytes2word(self.memory[address], self.memory[address + 1]))
         } else {
             None
         }
@@ -47,7 +47,7 @@ impl Memory {
 
     pub fn read_word_unsafe(&self, address: Address) -> Word {
         let address = address as usize;
-        to_word(self.memory[address], self.memory[address + 1])
+        bytes2word(self.memory[address], self.memory[address + 1])
     }
 
     pub fn write_byte(&mut self, address: Address, byte: Byte) -> Option<()> {

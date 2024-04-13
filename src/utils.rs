@@ -3,7 +3,7 @@ pub type SignedByte = i8;
 pub type Address = u16;
 pub type Word = u16;
 
-pub fn to_word(lsb: Byte, msb: Byte) -> Word {
+pub fn bytes2word(lsb: Byte, msb: Byte) -> Word {
     (lsb as Word).set_high(msb)
 }
 

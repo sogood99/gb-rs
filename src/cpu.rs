@@ -2,7 +2,7 @@ use log::{debug, info};
 
 use crate::{
     memory::Memory,
-    utils::{Address, Byte, ByteOP, SignedByte, Word},
+    utils::{bytes2word, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
 
 #[derive(Debug, PartialEq, Eq)]
@@ -387,7 +387,7 @@ impl SizedInstruction {
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
-        debug!("Opcode: {:#04X?}", opcode);
+        debug!("Address: {:#04X?}, Opcode: {:#04X?}", address, opcode);
         let (instruction, size) = if Self::NOP.matches(opcode) {
             (Instruction::NOP, 1)
         } else if Self::LD1.matches(opcode) {
@@ -751,9 +751,10 @@ pub struct CPU {
     pub e: Byte,
     pub h: Byte,
     pub l: Byte,
-    pub f: Byte,  // flag
-    pub sp: Word, // stack pointer
-    pub pc: Word, // program counter
+    pub f: Byte,   // flag
+    pub sp: Word,  // stack pointer
+    pub pc: Word,  // program counter
+    pub ime: bool, // Interrupt Master Enable Flag
 }
 
 impl CPU {
@@ -775,33 +776,80 @@ impl CPU {
             f: 0x00,
             sp: 0xFFFE,
             pc: 0x0, // currently start at 0x00,
+            ime: false,
         }
     }
 
-    fn get_register(&mut self, reg: Register) -> &mut Byte {
+    fn get_register(&mut self, reg: Register) -> Byte {
         match reg {
-            Register::A => &mut self.a,
-            Register::B => &mut self.b,
-            Register::C => &mut self.c,
-            Register::D => &mut self.d,
-            Register::E => &mut self.e,
-            Register::H => &mut self.h,
-            Register::L => &mut self.l,
+            Register::A => self.a,
+            Register::B => self.b,
+            Register::C => self.c,
+            Register::D => self.d,
+            Register::E => self.e,
+            Register::H => self.h,
+            Register::L => self.l,
             Register::HL => panic!("Unknown register HL"),
+        }
+    }
+
+    fn set_register(&mut self, reg: Register, byte: Byte) {
+        match reg {
+            Register::A => self.a = byte,
+            Register::B => self.b = byte,
+            Register::C => self.c = byte,
+            Register::D => self.d = byte,
+            Register::E => self.e = byte,
+            Register::H => self.h = byte,
+            Register::L => self.l = byte,
+            Register::HL => panic!("Unknown register HL"),
+        }
+    }
+
+    fn get_register16(&mut self, reg: Register16) -> Word {
+        match reg {
+            Register16::SP => self.sp,
+            Register16::BC => bytes2word(self.c, self.b),
+            Register16::DE => bytes2word(self.e, self.d),
+            Register16::AF => bytes2word(self.f, self.a),
+            Register16::HL => bytes2word(self.l, self.h),
+        }
+    }
+
+    fn set_register16(&mut self, reg: Register16, word: Word) {
+        match reg {
+            Register16::SP => self.sp = word,
+            Register16::BC => {
+                self.b = word.get_high();
+                self.c = word.get_low();
+            }
+            Register16::DE => {
+                self.d = word.get_high();
+                self.e = word.get_low();
+            }
+            Register16::AF => {
+                self.a = word.get_high();
+                self.f = word.get_low();
+            }
+            Register16::HL => {
+                self.h = word.get_high();
+                self.l = word.get_low();
+            }
         }
     }
 
     fn display_registers(&self) {
         debug!("Registers:");
         debug!(
-            "A: {:02X}\tB: {:02X}\tC: {:02X}\tD: {:02X}",
-            self.a, self.b, self.c, self.d
+            "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
+            self.a, self.f, self.b, self.c,
         );
         debug!(
-            "E: {:02X}\tH: {:02X}\tL: {:02X}\tF: {:02X}",
-            self.e, self.h, self.l, self.f
+            "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
+            self.d, self.e, self.h, self.l
         );
-        debug!("SP: {:04X}\tPC: {:04X}", self.sp, self.pc);
+        debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
+        debug!("\tIME: {}", if self.ime { "ENABLED" } else { "DISABLED" });
     }
 
     pub fn execute(&mut self, memory: &mut Memory) -> Option<()> {
@@ -814,9 +862,8 @@ impl CPU {
         match instruction.instruction {
             Instruction::NOP => (),
             Instruction::ADD_R(r) => {
-                let reg_val = *self.get_register(r);
+                let reg_val = self.get_register(r);
                 let (result, overflow) = self.a.overflowing_add(reg_val);
-                self.a = result;
 
                 // Update flags
                 self.clear_flag(Self::ZERO_FLAG);
@@ -829,15 +876,29 @@ impl CPU {
                 if result == 0 {
                     self.set_flag(Self::ZERO_FLAG);
                 }
-                if (self.a & 0x0F) + (self.b & 0x0F) > 0x0F {
+                if (self.a & 0x0F) + (reg_val & 0x0F) > 0x0F {
                     self.set_flag(Self::HALF_CARRY_FLAG);
                 }
-                self.display_registers();
+                self.a = result;
             }
+            Instruction::XOR_R(r) => {
+                let result = self.a ^ self.get_register(r);
+
+                self.clear_flag(Self::ZERO_FLAG);
+                self.clear_flag(Self::SUBTRACT_FLAG);
+                self.clear_flag(Self::HALF_CARRY_FLAG);
+                if result == 0 {
+                    self.set_flag(Self::ZERO_FLAG);
+                }
+                self.a = result;
+            }
+            Instruction::LD_RR_NN(rr, nn) => self.set_register16(rr, nn),
             _ => {
-                info!("Unimplemented instruction");
+                panic!("Unimplemented instruction");
             }
         }
+
+        self.display_registers();
 
         self.pc += instruction.size;
 
