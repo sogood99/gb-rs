@@ -5,7 +5,7 @@ use crate::{
     utils::{bytes2word, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Register {
     A,
     B,
@@ -17,7 +17,7 @@ pub enum Register {
     HL,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Register16 {
     BC,
     DE,
@@ -383,6 +383,8 @@ impl SizedInstruction {
     const CB: OpCode = OpCode(0xCB, 0b1111_1111);
     /// CB Prefixed Opcodes for RLC, RL, SLA, SWAP, RRC, etc
     const CB1: OpCode = OpCode(0b0000_0000, 0b1100_0000);
+    /// Interrupt Opcodes
+    const IR: OpCode = OpCode(0b1111_0011, 0b1111_0111);
 
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
@@ -628,6 +630,13 @@ impl SizedInstruction {
                 }
                 None => None,
             };
+        } else if Self::IR.matches(opcode) {
+            let instruction = if opcode & (1 << 3) > 0 {
+                Instruction::EI
+            } else {
+                Instruction::DI
+            };
+            (instruction, 1)
         } else {
             return None;
         };
@@ -775,134 +784,121 @@ impl CPU {
             l: 0,
             f: 0x00,
             sp: 0xFFFE,
-            pc: 0x0, // currently start at 0x00,
+            pc: 0x100, // currently start at 0x00,
             ime: false,
         }
     }
 
-    fn get_register(&mut self, reg: Register) -> Byte {
-        match reg {
-            Register::A => self.a,
-            Register::B => self.b,
-            Register::C => self.c,
-            Register::D => self.d,
-            Register::E => self.e,
-            Register::H => self.h,
-            Register::L => self.l,
-            Register::HL => panic!("Unknown register HL"),
-        }
-    }
+    pub fn execute(&mut self, memory: &mut Memory) {
+        let instruction = match SizedInstruction::decode(memory, self.pc) {
+            Some(ins) => ins,
+            None => panic!("Could not decode {:#04X?}", memory.read_byte(self.pc)),
+        };
 
-    fn set_register(&mut self, reg: Register, byte: Byte) {
-        match reg {
-            Register::A => self.a = byte,
-            Register::B => self.b = byte,
-            Register::C => self.c = byte,
-            Register::D => self.d = byte,
-            Register::E => self.e = byte,
-            Register::H => self.h = byte,
-            Register::L => self.l = byte,
-            Register::HL => panic!("Unknown register HL"),
-        }
-    }
-
-    fn get_register16(&mut self, reg: Register16) -> Word {
-        match reg {
-            Register16::SP => self.sp,
-            Register16::BC => bytes2word(self.c, self.b),
-            Register16::DE => bytes2word(self.e, self.d),
-            Register16::AF => bytes2word(self.f, self.a),
-            Register16::HL => bytes2word(self.l, self.h),
-        }
-    }
-
-    fn set_register16(&mut self, reg: Register16, word: Word) {
-        match reg {
-            Register16::SP => self.sp = word,
-            Register16::BC => {
-                self.b = word.get_high();
-                self.c = word.get_low();
-            }
-            Register16::DE => {
-                self.d = word.get_high();
-                self.e = word.get_low();
-            }
-            Register16::AF => {
-                self.a = word.get_high();
-                self.f = word.get_low();
-            }
-            Register16::HL => {
-                self.h = word.get_high();
-                self.l = word.get_low();
-            }
-        }
-    }
-
-    fn display_registers(&self) {
-        debug!("Registers:");
-        debug!(
-            "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
-            self.a, self.f, self.b, self.c,
-        );
-        debug!(
-            "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
-            self.d, self.e, self.h, self.l
-        );
-        debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
-        debug!("\tIME: {}", if self.ime { "ENABLED" } else { "DISABLED" });
-    }
-
-    pub fn execute(&mut self, memory: &mut Memory) -> Option<()> {
-        let instruction = SizedInstruction::decode(memory, self.pc)?;
         debug!(
             "Decoded Instruction: {:?} {:#04X?}",
             instruction, instruction
         );
-
         match instruction.instruction {
-            Instruction::NOP => (),
+            Instruction::NOP => self.pc += instruction.size,
             Instruction::ADD_R(r) => {
                 let reg_val = self.get_register(r);
                 let (result, overflow) = self.a.overflowing_add(reg_val);
 
                 // Update flags
-                self.clear_flag(Self::ZERO_FLAG);
-                self.clear_flag(Self::SUBTRACT_FLAG);
-                self.clear_flag(Self::HALF_CARRY_FLAG);
+                self.zero_flag(result);
+                self.half_carry_flag(self.a, reg_val);
+                self.reset_flag(Self::SUBTRACT_FLAG);
 
+                self.reset_flag(Self::CARRY_FLAG);
                 if overflow {
                     self.set_flag(Self::CARRY_FLAG);
                 }
-                if result == 0 {
-                    self.set_flag(Self::ZERO_FLAG);
-                }
-                if (self.a & 0x0F) + (reg_val & 0x0F) > 0x0F {
-                    self.set_flag(Self::HALF_CARRY_FLAG);
-                }
                 self.a = result;
+                self.pc += instruction.size;
             }
             Instruction::XOR_R(r) => {
                 let result = self.a ^ self.get_register(r);
 
-                self.clear_flag(Self::ZERO_FLAG);
-                self.clear_flag(Self::SUBTRACT_FLAG);
-                self.clear_flag(Self::HALF_CARRY_FLAG);
-                if result == 0 {
-                    self.set_flag(Self::ZERO_FLAG);
-                }
+                self.zero_flag(result);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::HALF_CARRY_FLAG);
                 self.a = result;
+                self.pc += instruction.size;
             }
-            Instruction::LD_RR_NN(rr, nn) => self.set_register16(rr, nn),
+            Instruction::LD_R_N(r, n) => {
+                self.set_register(r, n);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_RR_NN(rr, nn) => {
+                self.set_register16(rr, nn);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_HL_A_D => {
+                memory.write_byte(self.get_hl(), self.a);
+                self.set_hl(self.get_hl() - 1);
+                self.pc += instruction.size;
+            }
+            Instruction::LDH_C_A => {
+                let address = bytes2word(self.c, 0xFF);
+                memory.write_byte(address, self.a);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_HL_R(r) => {
+                let address = self.get_hl();
+                let data = self.get_register(r);
+                memory.write_byte(address, data);
+                self.pc += instruction.size;
+            }
+            Instruction::LDH_N_A(n) => {
+                self.pc += 2;
+                let address = bytes2word(n, 0xFF);
+                memory.write_byte(address, self.a);
+            }
+            Instruction::INC_R(r) => {
+                let reg_val = self.get_register(r);
+                let (result, _overflow) = reg_val.overflowing_add(1);
+
+                // Update flags
+                self.zero_flag(result);
+                self.half_carry_flag(reg_val, 1);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_A_DE => {
+                self.pc += instruction.size;
+                let address = self.get_register16(Register16::DE);
+                self.a = memory.read_byte(address).expect("Memory Out of Bounds");
+            }
+            Instruction::BIT(b, r) => {
+                let result = (self.get_register(r) & (1 << b)) >> b;
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.zero_flag(result);
+                self.pc += instruction.size;
+            }
+            Instruction::JR_CC(cc, e) => {
+                self.pc += 2;
+                if self.get_condition(cc) {
+                    self.pc = self.pc.wrapping_add_signed(e.into());
+                }
+            }
+            Instruction::EI => {
+                self.ime = true;
+                self.pc += instruction.size;
+            }
+            Instruction::DI => {
+                self.ime = false;
+                self.pc += instruction.size;
+            }
             _ => {
                 panic!("Unimplemented instruction");
             }
         }
 
         self.display_registers();
-
-        self.pc += instruction.size;
-
-        Some(())
 
         // match opcode {
         //     // NOP instruction (0x00)
@@ -1023,23 +1019,152 @@ impl CPU {
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {}
 
-    pub fn get_word(high: u8, low: u8) -> u16 {
-        ((high as u16) << 8) | (low as u16)
+    fn get_hl(&self) -> Word {
+        self.get_register16(Register16::HL)
     }
 
-    pub fn get_hl(&self) -> u16 {
-        Self::get_word(self.h, self.l)
+    fn set_hl(&mut self, word: Word) {
+        self.set_register16(Register16::HL, word);
     }
 
-    pub fn set_flag(&mut self, flag: u8) {
+    fn get_flag(&self, flag: Byte) -> bool {
+        (self.f & flag) > 0
+    }
+
+    fn set_flag(&mut self, flag: Byte) {
         self.f |= flag;
     }
 
-    pub fn clear_flag(&mut self, flag: u8) {
+    fn reset_flag(&mut self, flag: Byte) {
         self.f &= !flag;
     }
 
-    pub fn clear_all_flags(&mut self) {
+    fn clear_all_flags(&mut self) {
         self.f = 0;
+    }
+
+    fn zero_flag(&mut self, result: Byte) {
+        self.reset_flag(Self::ZERO_FLAG);
+        if result == 0 {
+            self.set_flag(Self::ZERO_FLAG);
+        }
+    }
+
+    fn half_carry_flag(&mut self, b1: Byte, b2: Byte) {
+        self.reset_flag(Self::HALF_CARRY_FLAG);
+        if (b1 & 0x0F) + (b2 & 0x0F) > 0x0F {
+            self.set_flag(Self::HALF_CARRY_FLAG);
+        }
+    }
+
+    fn get_register(&self, reg: Register) -> Byte {
+        match reg {
+            Register::A => self.a,
+            Register::B => self.b,
+            Register::C => self.c,
+            Register::D => self.d,
+            Register::E => self.e,
+            Register::H => self.h,
+            Register::L => self.l,
+            Register::HL => panic!("Unknown register HL"),
+        }
+    }
+
+    fn set_register(&mut self, reg: Register, byte: Byte) {
+        match reg {
+            Register::A => self.a = byte,
+            Register::B => self.b = byte,
+            Register::C => self.c = byte,
+            Register::D => self.d = byte,
+            Register::E => self.e = byte,
+            Register::H => self.h = byte,
+            Register::L => self.l = byte,
+            Register::HL => panic!("Unknown register HL"),
+        }
+    }
+
+    fn get_register16(&self, reg: Register16) -> Word {
+        match reg {
+            Register16::SP => self.sp,
+            Register16::BC => bytes2word(self.c, self.b),
+            Register16::DE => bytes2word(self.e, self.d),
+            Register16::AF => bytes2word(self.f, self.a),
+            Register16::HL => bytes2word(self.l, self.h),
+        }
+    }
+
+    fn set_register16(&mut self, reg: Register16, word: Word) {
+        match reg {
+            Register16::SP => self.sp = word,
+            Register16::BC => {
+                self.b = word.get_high();
+                self.c = word.get_low();
+            }
+            Register16::DE => {
+                self.d = word.get_high();
+                self.e = word.get_low();
+            }
+            Register16::AF => {
+                self.a = word.get_high();
+                self.f = word.get_low();
+            }
+            Register16::HL => {
+                self.h = word.get_high();
+                self.l = word.get_low();
+            }
+        }
+    }
+
+    fn get_condition(&self, cc: Condition) -> bool {
+        match cc {
+            Condition::NonZero => !self.get_flag(Self::ZERO_FLAG),
+            Condition::Zero => self.get_flag(Self::ZERO_FLAG),
+            Condition::NotCarry => !self.get_flag(Self::CARRY_FLAG),
+            Condition::Carry => self.get_flag(Self::CARRY_FLAG),
+        }
+    }
+
+    fn display_registers(&self) {
+        debug!("Registers:");
+        debug!(
+            "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
+            self.a, self.f, self.b, self.c,
+        );
+        debug!(
+            "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
+            self.d, self.e, self.h, self.l
+        );
+        debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
+        debug!(
+            "\tIME: {}\t Flags: {}",
+            if self.ime { "ENABLED" } else { "DISABLED" },
+            self.display_flags()
+        );
+    }
+
+    fn display_flags(&self) -> String {
+        format!(
+            "{}{}{}{}",
+            if self.get_flag(Self::CARRY_FLAG) {
+                "C"
+            } else {
+                "-"
+            },
+            if self.get_flag(Self::HALF_CARRY_FLAG) {
+                "H"
+            } else {
+                "-"
+            },
+            if self.get_flag(Self::SUBTRACT_FLAG) {
+                "N"
+            } else {
+                "-"
+            },
+            if self.get_flag(Self::ZERO_FLAG) {
+                "Z"
+            } else {
+                "-"
+            },
+        )
     }
 }

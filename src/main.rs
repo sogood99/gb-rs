@@ -1,4 +1,4 @@
-use std::fs;
+use std::{fs, path::Path};
 
 use clap::{App, Arg};
 use gb_rs::gb::GameBoy;
@@ -19,7 +19,26 @@ fn main() -> Result<(), String> {
                 .takes_value(true)
                 .required(true),
         )
+        .arg(
+            Arg::with_name("boot_bin")
+                .short('b')
+                .long("boot binary")
+                .value_name("BOOT")
+                .help("Sets the Boot ROM file to read")
+                .default_value(Path::new("assets").join("dmg_boot.bin").to_str().unwrap()),
+        )
         .get_matches();
+
+    let boot_bin = matches.value_of("boot_bin").unwrap();
+    info!("Loading boot bin {}", boot_bin);
+    let contents = fs::read(boot_bin);
+    let boot_bin = match contents {
+        Ok(fs) => fs,
+        Err(e) => {
+            debug!("Unable to read file {} due to {}", boot_bin, e.to_string());
+            return Err(String::from("Unable to read file"));
+        }
+    };
 
     let rom_file = matches.value_of("rom_file").unwrap();
     info!("Running rom file {}", rom_file);
@@ -33,6 +52,7 @@ fn main() -> Result<(), String> {
     };
 
     let mut gameboy = GameBoy::new();
+    gameboy.load_boot(boot_bin);
     gameboy.load_rom(rom_file);
     gameboy.run();
 

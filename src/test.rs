@@ -1444,6 +1444,38 @@ mod tests {
     }
 
     #[test]
+    fn decode_ei() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xFB]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::EI,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
+    fn decode_di() {
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xF3]);
+
+        let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
+        assert_eq!(
+            instr,
+            SizedInstruction {
+                instruction: Instruction::DI,
+                size: 1
+            }
+        )
+    }
+
+    #[test]
     fn execute_addr() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();

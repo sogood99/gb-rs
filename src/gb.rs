@@ -14,20 +14,22 @@ impl GameBoy {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
-        self.memory.load_rom(rom_data);
+        self.memory.load_rom_offset(rom_data, 0x100);
+    }
+
+    pub fn load_boot(&mut self, boot_data: Vec<u8>) {
+        self.memory.load_rom(boot_data);
     }
 
     pub fn run(mut self) {
         // initialize
         // let graphics = Graphics::new();
 
-        loop {
-            let res = self.cpu.execute(&mut self.memory);
+        for _i in 0..10 {
+            // loop {
+            self.cpu.execute(&mut self.memory);
 
-            match res {
-                Some(()) => self.cpu.handle_interrupts(&mut self.memory),
-                None => return,
-            }
+            self.cpu.handle_interrupts(&mut self.memory);
 
             // render graphics
             // run audio

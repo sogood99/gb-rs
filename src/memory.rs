@@ -18,9 +18,18 @@ impl Memory {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<Byte>) {
-        debug!("Size of rom is 0x{:02x}", rom_data.len());
+        self.load_rom_offset(rom_data, 0);
+    }
 
-        self.memory[..rom_data.len()].copy_from_slice(&rom_data[..]);
+    pub fn load_rom_offset(&mut self, rom_data: Vec<Byte>, offset: Address) {
+        let offset = offset.into();
+        debug!(
+            "Size of rom is {:#04X?}, loaded at offset {:#04X?}",
+            rom_data.len(),
+            offset
+        );
+
+        self.memory[offset..rom_data.len()].copy_from_slice(&rom_data[offset..]);
     }
 
     pub fn read_byte(&self, address: Address) -> Option<Byte> {
