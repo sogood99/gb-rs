@@ -1,15 +1,24 @@
+use log::debug;
+use sdl2::{event::Event, keyboard::Keycode};
+
 use crate::{cpu::CPU, graphics::Graphics, memory::Memory};
 
 pub struct GameBoy {
     cpu: CPU,
     memory: Memory,
+    graphics: Option<Graphics>,
 }
 
 impl GameBoy {
-    pub fn new() -> Self {
+    pub fn new(graphics_enabled: bool) -> Self {
         GameBoy {
             cpu: CPU::new(),
             memory: Memory::new(),
+            graphics: if graphics_enabled {
+                Some(Graphics::new())
+            } else {
+                None
+            },
         }
     }
 
@@ -22,16 +31,36 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
-        // initialize
-        // let graphics = Graphics::new();
-
+        // polling user inputs
         loop {
-            // loop {
             self.cpu.execute(&mut self.memory);
 
             self.cpu.handle_interrupts(&mut self.memory);
 
+            if self.memory.read_byte_unsafe(0xff02) == 0x81 {
+                let c = self.memory.read_byte_unsafe(0xff01);
+                print!("{}", c);
+                self.memory.write_byte(0xff02, 0);
+            }
+
             // render graphics
+            if let Some(ref mut graphics) = self.graphics {
+                for event in graphics.event_pump.poll_iter() {
+                    match event {
+                        Event::Quit { .. }
+                        | Event::KeyDown {
+                            keycode: Some(Keycode::Escape),
+                            ..
+                        }
+                        | Event::KeyDown {
+                            keycode: Some(Keycode::Q),
+                            ..
+                        } => return,
+                        _ => {}
+                    }
+                }
+                graphics.render();
+            }
             // run audio
         }
     }

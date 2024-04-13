@@ -784,7 +784,7 @@ impl CPU {
             l: 0,
             f: 0x00,
             sp: 0xFFFE,
-            pc: 0x100, // currently start at 0x00,
+            pc: 0x00, // currently start at 0x00,
             ime: false,
         }
     }
@@ -1163,6 +1163,31 @@ impl CPU {
                     self.pc = bytes2word(lsb, msb);
                 }
             }
+            Instruction::RL(r) => {
+                let reg_val = self.get_register(r);
+                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let result = (reg_val << 1) | old_carry;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if reg_val & (1 << 7) != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::RLA => {
+                let r = Register::A;
+                let reg_val = self.get_register(r);
+                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let result = (reg_val << 1) | old_carry;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if reg_val & (1 << 7) != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
             Instruction::RR(r) => {
                 let reg_val = self.get_register(r);
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
@@ -1176,13 +1201,16 @@ impl CPU {
                 self.pc += instruction.size;
             }
             Instruction::RRA => {
+                let r = Register::A;
+                let reg_val = self.get_register(r);
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
-                let result = (self.a >> 1) | (old_carry << 7);
+                let result = (reg_val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
-                if self.a & 1 != 0 {
+                self.zero_flag(result);
+                if reg_val & 1 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
-                self.a = result;
+                self.set_register(r, result);
                 self.pc += instruction.size;
             }
             Instruction::SRL(r) => {
