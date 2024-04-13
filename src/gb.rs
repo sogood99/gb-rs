@@ -25,7 +25,7 @@ impl GameBoy {
         // initialize
         // let graphics = Graphics::new();
 
-        for _i in 0..10 {
+        loop {
             // loop {
             self.cpu.execute(&mut self.memory);
 

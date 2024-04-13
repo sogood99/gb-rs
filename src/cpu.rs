@@ -807,13 +807,43 @@ impl CPU {
 
                 // Update flags
                 self.zero_flag(result);
-                self.half_carry_flag(self.a, reg_val);
+                self.half_carry_flag_add(self.a, reg_val);
                 self.reset_flag(Self::SUBTRACT_FLAG);
 
                 self.reset_flag(Self::CARRY_FLAG);
                 if overflow {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::SUB_R(r) => {
+                let reg_val = self.get_register(r);
+                let (result, overflow) = self.a.overflowing_sub(reg_val);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(self.a, reg_val);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::AND_N(n) => {
+                self.pc += instruction.size;
+                let result = self.a & n;
+                self.a = result;
+                self.zero_flag(result);
+                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+            }
+            Instruction::OR_R(r) => {
+                let result = self.a | self.get_register(r);
+                self.reset_all_flags();
+                self.zero_flag(result);
                 self.a = result;
                 self.pc += instruction.size;
             }
@@ -826,12 +856,41 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
+            Instruction::CP_N(n) => {
+                let (result, overflow) = self.a.overflowing_sub(n);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(self.a, n);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.pc += instruction.size;
+            }
+            Instruction::LD_R_R(r1, r2) => {
+                let data = self.get_register(r2);
+                self.set_register(r1, data);
+                self.pc += instruction.size;
+            }
             Instruction::LD_R_N(r, n) => {
                 self.set_register(r, n);
                 self.pc += instruction.size;
             }
             Instruction::LD_RR_NN(rr, nn) => {
                 self.set_register16(rr, nn);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_A_HL_I => {
+                self.a = memory
+                    .read_byte(self.get_hl())
+                    .expect("Could not read address");
+                self.set_hl(self.get_hl() + 1);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_DE_A => {
+                let address = self.get_register16(Register16::DE);
+                memory.write_byte(address, self.a);
                 self.pc += instruction.size;
             }
             Instruction::LD_HL_A_D => {
@@ -850,10 +909,29 @@ impl CPU {
                 memory.write_byte(address, data);
                 self.pc += instruction.size;
             }
+            Instruction::LD_A_DE => {
+                self.pc += instruction.size;
+                let address = self.get_register16(Register16::DE);
+                self.a = memory.read_byte(address).expect("Memory Out of Bounds");
+            }
+            Instruction::LD_A_NN(nn) => {
+                self.pc += instruction.size;
+                self.a = memory.read_byte(nn).unwrap();
+            }
+            Instruction::LD_NN_A(nn) => {
+                memory.write_byte(nn, self.a);
+                self.pc += instruction.size;
+            }
             Instruction::LDH_N_A(n) => {
                 self.pc += 2;
                 let address = bytes2word(n, 0xFF);
                 memory.write_byte(address, self.a);
+            }
+            Instruction::LDH_A_N(n) => {
+                self.pc += 2;
+                let address = bytes2word(n, 0xFF);
+                let data = memory.read_byte(address).unwrap();
+                self.a = data;
             }
             Instruction::INC_R(r) => {
                 let reg_val = self.get_register(r);
@@ -861,16 +939,35 @@ impl CPU {
 
                 // Update flags
                 self.zero_flag(result);
-                self.half_carry_flag(reg_val, 1);
+                self.half_carry_flag_add(reg_val, 1);
                 self.reset_flag(Self::SUBTRACT_FLAG);
 
                 self.set_register(r, result);
                 self.pc += instruction.size;
             }
-            Instruction::LD_A_DE => {
+            Instruction::DEC_R(r) => {
+                let reg_val = self.get_register(r);
+                let (result, _overflow) = reg_val.overflowing_sub(1);
+
+                // Update flags
+                self.zero_flag(result);
+                self.half_carry_flag_sub(reg_val, 1);
+                self.set_flag(Self::SUBTRACT_FLAG);
+
+                self.set_register(r, result);
                 self.pc += instruction.size;
-                let address = self.get_register16(Register16::DE);
-                self.a = memory.read_byte(address).expect("Memory Out of Bounds");
+            }
+            Instruction::INC_RR(rr) => {
+                let reg_val = self.get_register16(rr);
+                let (result, _overflow) = reg_val.overflowing_add(1);
+                self.set_register16(rr, result);
+                self.pc += instruction.size;
+            }
+            Instruction::DEC_RR(rr) => {
+                let reg_val = self.get_register16(rr);
+                let (result, _overflow) = reg_val.overflowing_sub(1);
+                self.set_register16(rr, result);
+                self.pc += instruction.size;
             }
             Instruction::BIT(b, r) => {
                 let result = (self.get_register(r) & (1 << b)) >> b;
@@ -879,11 +976,64 @@ impl CPU {
                 self.zero_flag(result);
                 self.pc += instruction.size;
             }
+            Instruction::JP_NN(nn) => {
+                self.pc = nn;
+            }
+            Instruction::JR(e) => {
+                self.pc += 2;
+                self.pc = self.pc.wrapping_add_signed(e.into());
+            }
             Instruction::JR_CC(cc, e) => {
                 self.pc += 2;
                 if self.get_condition(cc) {
                     self.pc = self.pc.wrapping_add_signed(e.into());
                 }
+            }
+            Instruction::PUSH(rr) => {
+                self.pc += 1;
+                self.sp -= 1;
+                let data = self.get_register16(rr);
+                memory.write_byte(self.sp, data.get_high());
+                // debug!("{:#04X?} : {:#04X?}", self.sp, memory.read_byte(self.sp));
+                self.sp -= 1;
+                memory.write_byte(self.sp, data.get_low());
+                // debug!("{:#04X?} : {:#04X?}", self.sp, memory.read_byte(self.sp));
+                // self.display_registers();
+                // panic!();
+            }
+            Instruction::POP(rr) => {
+                self.pc += 1;
+                let lsb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                let msb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                self.set_register16(rr, bytes2word(lsb, msb));
+            }
+            Instruction::CALL(nn) => {
+                self.pc += 3;
+                self.sp -= 1;
+                memory.write_byte(self.sp, self.pc.get_high());
+                self.sp -= 1;
+                memory.write_byte(self.sp, self.pc.get_low());
+                self.pc = nn;
+            }
+            Instruction::CALL_CC(cc, nn) => {
+                self.pc += 3;
+                if self.get_condition(cc) {
+                    self.sp -= 1;
+                    memory.write_byte(self.sp, self.pc.get_high());
+                    self.sp -= 1;
+                    memory.write_byte(self.sp, self.pc.get_low());
+                    self.pc = nn;
+                }
+            }
+            Instruction::RET => {
+                self.pc += 1;
+                let lsb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                let msb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                self.pc = bytes2word(lsb, msb);
             }
             Instruction::EI => {
                 self.ime = true;
@@ -1039,7 +1189,7 @@ impl CPU {
         self.f &= !flag;
     }
 
-    fn clear_all_flags(&mut self) {
+    fn reset_all_flags(&mut self) {
         self.f = 0;
     }
 
@@ -1050,9 +1200,16 @@ impl CPU {
         }
     }
 
-    fn half_carry_flag(&mut self, b1: Byte, b2: Byte) {
+    fn half_carry_flag_add(&mut self, b1: Byte, b2: Byte) {
         self.reset_flag(Self::HALF_CARRY_FLAG);
         if (b1 & 0x0F) + (b2 & 0x0F) > 0x0F {
+            self.set_flag(Self::HALF_CARRY_FLAG);
+        }
+    }
+
+    fn half_carry_flag_sub(&mut self, b1: Byte, b2: Byte) {
+        self.reset_flag(Self::HALF_CARRY_FLAG);
+        if (b1 & 0x0F) < (b2 & 0x0F) {
             self.set_flag(Self::HALF_CARRY_FLAG);
         }
     }
