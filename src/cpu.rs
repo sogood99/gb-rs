@@ -872,22 +872,49 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
+            Instruction::OR_HL => {
+                let value = memory.read_byte(self.get_hl()).unwrap();
+                let result = self.a | value;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                self.a = result;
+                self.pc += instruction.size;
+            }
             Instruction::XOR_R(r) => {
                 let result = self.a ^ self.get_register(r);
 
+                self.reset_all_flags();
                 self.zero_flag(result);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::HALF_CARRY_FLAG);
                 self.a = result;
                 self.pc += instruction.size;
             }
             Instruction::XOR_HL => {
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let result = self.a ^ val;
+                self.reset_all_flags();
                 self.zero_flag(result);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::HALF_CARRY_FLAG);
                 self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::XOR_N(n) => {
+                let result = self.a ^ n;
+
+                self.reset_all_flags();
+                self.zero_flag(result);
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::CP_R(r) => {
+                let reg_val = self.get_register(r);
+                let (result, overflow) = self.a.overflowing_sub(reg_val);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(self.a, reg_val);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
                 self.pc += instruction.size;
             }
             Instruction::CP_N(n) => {
@@ -900,6 +927,21 @@ impl CPU {
                 if overflow {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                self.pc += instruction.size;
+            }
+            Instruction::ADC_N(n) => {
+                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let (res1, ovf1) = self.a.overflowing_add(n);
+                let (res2, ovf2) = res1.overflowing_add(cf);
+                let overflow = ovf1 || ovf2;
+                self.zero_flag(res2);
+                self.half_carry_flag_adc(self.a, n, cf);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = res2;
                 self.pc += instruction.size;
             }
             Instruction::LD_R_R(r1, r2) => {
@@ -993,12 +1035,22 @@ impl CPU {
                 let reg_val = self.get_register(r);
                 let (result, _overflow) = reg_val.overflowing_sub(1);
 
-                // Update flags
                 self.zero_flag(result);
                 self.half_carry_flag_sub(reg_val, 1);
                 self.set_flag(Self::SUBTRACT_FLAG);
 
                 self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::DEC_HL => {
+                let address = self.get_hl();
+                let val = memory.read_byte(address).unwrap();
+                let (result, _overflow) = val.overflowing_sub(1);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(val, 1);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                memory.write_byte(address, result);
                 self.pc += instruction.size;
             }
             Instruction::INC_RR(rr) => {
@@ -1013,6 +1065,19 @@ impl CPU {
                 self.set_register16(rr, result);
                 self.pc += instruction.size;
             }
+            Instruction::ADD_HL_RR(rr) => {
+                let reg_val = self.get_register16(rr);
+                let (result, overflow) = self.get_hl().overflowing_add(reg_val);
+
+                self.half_carry_flag_add16(self.get_hl(), reg_val);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_hl(result);
+                self.pc += instruction.size;
+            }
             Instruction::BIT(b, r) => {
                 let result = (self.get_register(r) & (1 << b)) >> b;
                 self.reset_flag(Self::SUBTRACT_FLAG);
@@ -1022,6 +1087,15 @@ impl CPU {
             }
             Instruction::JP_NN(nn) => {
                 self.pc = nn;
+            }
+            Instruction::JP_CC_NN(cc, nn) => {
+                self.pc += 3;
+                if self.get_condition(cc) {
+                    self.pc = nn;
+                }
+            }
+            Instruction::JP_HL => {
+                self.pc = self.get_hl();
             }
             Instruction::JR(e) => {
                 self.pc += 2;
@@ -1079,6 +1153,16 @@ impl CPU {
                 self.sp += 1;
                 self.pc = bytes2word(lsb, msb);
             }
+            Instruction::RET_CC(cc) => {
+                self.pc += 1;
+                if self.get_condition(cc) {
+                    let lsb = memory.read_byte(self.sp).unwrap();
+                    self.sp += 1;
+                    let msb = memory.read_byte(self.sp).unwrap();
+                    self.sp += 1;
+                    self.pc = bytes2word(lsb, msb);
+                }
+            }
             Instruction::RR(r) => {
                 let reg_val = self.get_register(r);
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
@@ -1126,122 +1210,6 @@ impl CPU {
         }
 
         self.display_registers();
-
-        // match opcode {
-        //     // NOP instruction (0x00)
-        //     Self::NOP => {
-        //         // Do nothing
-        //         debug!("NOP Instruction");
-        //     }
-        //     // ADD instructions
-        //     Self::ADD_R | Self::ADD_HL | Self::ADD_N => {
-        //         let (result, overflow) = match opcode {
-        //             Self::ADD_R => self.a.overflowing_add(self.b),
-        //             Self::ADD_HL => {
-        //                 let address = self.get_hl();
-        //                 let value = memory.read_byte(address);
-        //                 self.a.overflowing_add(value)
-        //             }
-        //             Self::ADD_N => {
-        //                 let value = memory.read_byte(self.pc);
-        //                 self.pc += 1;
-        //                 self.a.overflowing_add(value)
-        //             }
-        //             _ => {
-        //                 panic!("Will never happen")
-        //             }
-        //         };
-        //
-        //         self.a = result;
-        //
-        //         // Update flags
-        //         self.clear_flag(Self::ZERO_FLAG);
-        //         self.clear_flag(Self::SUBTRACT_FLAG);
-        //         self.clear_flag(Self::HALF_CARRY_FLAG);
-        //
-        //         if overflow {
-        //             self.set_flag(Self::CARRY_FLAG);
-        //         }
-        //         if result == 0 {
-        //             self.set_flag(Self::ZERO_FLAG);
-        //         }
-        //         if (self.a & 0x0F) + (self.b & 0x0F) > 0x0F {
-        //             self.set_flag(Self::HALF_CARRY_FLAG);
-        //         }
-        //
-        //         debug!("Add instruction");
-        //         self.display_registers();
-        //     }
-        //     // SUB/CMP instructions
-        //     Self::SUB_R | Self::SUB_HL | Self::SUB_N | Self::CMP_R | Self::CMP_HL | Self::CMP_N => {
-        //         let (result, overflow) = match opcode {
-        //             Self::SUB_R | Self::CMP_R => self.a.overflowing_sub(self.b),
-        //             Self::SUB_HL | Self::CMP_HL => {
-        //                 let address = self.get_hl();
-        //                 let value = memory.read_byte(address);
-        //                 self.a.overflowing_sub(value)
-        //             }
-        //             Self::SUB_N | Self::CMP_N => {
-        //                 let value = memory.read_byte(self.pc);
-        //                 self.pc += 1;
-        //                 self.a.overflowing_sub(value)
-        //             }
-        //             _ => {
-        //                 panic!("Will never happen")
-        //             }
-        //         };
-        //
-        //         if [Self::SUB_R, Self::SUB_HL, Self::SUB_N].contains(&opcode) {
-        //             self.a = result;
-        //         }
-        //
-        //         // Update flags
-        //         self.clear_flag(Self::ZERO_FLAG);
-        //         self.clear_flag(Self::HALF_CARRY_FLAG);
-        //
-        //         self.set_flag(Self::SUBTRACT_FLAG);
-        //         if overflow {
-        //             self.set_flag(Self::CARRY_FLAG);
-        //         }
-        //         if result == 0 {
-        //             self.set_flag(Self::ZERO_FLAG);
-        //         }
-        //         if (self.a & 0x0F) < (self.b & 0x0F) {
-        //             self.set_flag(Self::HALF_CARRY_FLAG);
-        //         }
-        //
-        //         debug!("SUB/CMP instruction");
-        //         self.display_registers();
-        //     }
-        //     Self::LD_R_R | Self::LD_R_HL | Self::LD_R_N => {
-        //         let value = match opcode {
-        //             Self::LD_R_R => self.c,
-        //             Self::LD_R_HL => {
-        //                 let addr = self.get_hl();
-        //                 memory.read_byte(addr)
-        //             }
-        //             Self::LD_R_N => {
-        //                 let val = memory.read_byte(self.pc);
-        //                 self.pc += 1;
-        //                 val
-        //             }
-        //             _ => panic!("Will never happen"),
-        //         };
-        //         self.b = value;
-        //     }
-        //     Self::XOR_R => {
-        //         let result = self.a ^ self.b;
-        //         self.a = result;
-        //         self.clear_all_flags();
-        //         if result == 0 {
-        //             self.set_flag(Self::ZERO_FLAG);
-        //         }
-        //     }
-        //     _ => {
-        //         debug!("Unknown opcode 0x{:02x}", opcode);
-        //         unimplemented!()
-        //     }
-        // }
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {}
@@ -1279,7 +1247,22 @@ impl CPU {
 
     fn half_carry_flag_add(&mut self, b1: Byte, b2: Byte) {
         self.reset_flag(Self::HALF_CARRY_FLAG);
-        if (b1 & 0x0F) + (b2 & 0x0F) > 0x0F {
+        if (b1 & 0xF) + (b2 & 0xF) > 0x0F {
+            self.set_flag(Self::HALF_CARRY_FLAG);
+        }
+    }
+
+    fn half_carry_flag_add16(&mut self, w1: Word, w2: Word) {
+        self.reset_flag(Self::HALF_CARRY_FLAG);
+        if (w1 & 0xFFF) + (w2 & 0xFFF) > 0xFFF {
+            self.set_flag(Self::HALF_CARRY_FLAG);
+        }
+    }
+
+    fn half_carry_flag_adc(&mut self, b1: Byte, b2: Byte, cf: Byte) {
+        assert!(cf <= 1);
+        self.reset_flag(Self::HALF_CARRY_FLAG);
+        if (b1 & 0xF) + (b2 & 0xF) + 1 > 0x0F {
             self.set_flag(Self::HALF_CARRY_FLAG);
         }
     }
