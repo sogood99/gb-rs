@@ -768,10 +768,10 @@ pub struct CPU {
 
 impl CPU {
     // ----- flags -----
-    const ZERO_FLAG: Byte = 0b10000000;
-    const SUBTRACT_FLAG: Byte = 0b01000000;
-    const HALF_CARRY_FLAG: Byte = 0b00100000;
-    const CARRY_FLAG: Byte = 0b00010000;
+    pub const ZERO_FLAG: Byte = 0b10000000;
+    pub const SUBTRACT_FLAG: Byte = 0b01000000;
+    pub const HALF_CARRY_FLAG: Byte = 0b00100000;
+    pub const CARRY_FLAG: Byte = 0b00010000;
 
     pub fn new() -> Self {
         Self {
@@ -1117,6 +1117,19 @@ impl CPU {
                     self.pc = self.pc.wrapping_add_signed(e.into());
                 }
             }
+            Instruction::ADD_SP_E(e) => {
+                let (result, overflow) = self.sp.overflowing_add_signed(e.into());
+                self.pc += 2;
+                self.reset_all_flags();
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                let e_u = (e as Byte) as Word; // first to byte (-1 => 255)
+                if (self.sp & 0xF) + (e_u & 0xF) > 0xF {
+                    self.set_flag(Self::HALF_CARRY_FLAG);
+                }
+                self.sp = result;
+            }
             Instruction::PUSH(rr) => {
                 self.pc += 1;
                 self.sp -= 1;
@@ -1243,7 +1256,11 @@ impl CPU {
                 self.pc += instruction.size;
             }
             _ => {
-                panic!("Could not execute {:#04X?}", instruction);
+                panic!(
+                    "Could not execute {:#04X?} with opcode {:#04X?}",
+                    instruction,
+                    memory.read_byte_unsafe(self.pc)
+                );
             }
         }
 
@@ -1252,7 +1269,7 @@ impl CPU {
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {}
 
-    fn get_hl(&self) -> Word {
+    pub fn get_hl(&self) -> Word {
         self.get_register16(Register16::HL)
     }
 
@@ -1260,7 +1277,7 @@ impl CPU {
         self.set_register16(Register16::HL, word);
     }
 
-    fn get_flag(&self, flag: Byte) -> bool {
+    pub fn get_flag(&self, flag: Byte) -> bool {
         (self.f & flag) > 0
     }
 

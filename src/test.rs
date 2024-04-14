@@ -1542,4 +1542,36 @@ mod tests {
 
         assert_eq!(cpu.a, 0b01100110);
     }
+
+    #[test]
+    fn execute_addspe() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xE8, 0xfe]);
+
+        cpu.sp = 1;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.sp, 0xffff);
+        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
+    }
+
+    #[test]
+    fn execute_addspe_hc() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xE8, 0xff]);
+
+        cpu.sp = 0xf;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.sp, 0xe);
+        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+    }
 }

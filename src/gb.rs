@@ -40,7 +40,8 @@ impl GameBoy {
 
             self.cpu.handle_interrupts(&mut self.memory);
 
-            if self.memory.read_byte_unsafe(0xff02) != 0 {
+            // serial output debug
+            if self.memory.read_byte_unsafe(0xff02) == 0x81 {
                 let c = self.memory.read_byte_unsafe(0xff01) as char;
                 print!("{}", c);
                 self.memory.write_byte(0xff02, 0);
