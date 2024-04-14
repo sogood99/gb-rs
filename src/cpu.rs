@@ -981,6 +981,22 @@ impl CPU {
                 }
                 self.pc += instruction.size;
             }
+            Instruction::ADC_R(r) => {
+                let reg_val = self.get_register(r);
+                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let (res1, ovf1) = self.a.overflowing_add(reg_val);
+                let (res2, ovf2) = res1.overflowing_add(cf);
+                let overflow = ovf1 || ovf2;
+                self.zero_flag(res2);
+                self.half_carry_flag_adc(self.a, reg_val, cf);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = res2;
+                self.pc += instruction.size;
+            }
             Instruction::ADC_N(n) => {
                 let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_add(n);
@@ -1005,6 +1021,22 @@ impl CPU {
                 self.zero_flag(res2);
                 self.half_carry_flag_adc(self.a, val, cf);
                 self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = res2;
+                self.pc += instruction.size;
+            }
+            Instruction::SBC_R(r) => {
+                let reg_val = self.get_register(r);
+                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let (res1, ovf1) = self.a.overflowing_sub(reg_val);
+                let (res2, ovf2) = res1.overflowing_sub(cf);
+                let overflow = ovf1 || ovf2;
+                self.zero_flag(res2);
+                self.half_carry_flag_sbc(self.a, reg_val, cf);
+                self.set_flag(Self::SUBTRACT_FLAG);
                 self.reset_flag(Self::CARRY_FLAG);
                 if overflow {
                     self.set_flag(Self::CARRY_FLAG);
@@ -1206,7 +1238,6 @@ impl CPU {
                 self.set_flag(Self::SUBTRACT_FLAG);
                 self.set_flag(Self::HALF_CARRY_FLAG);
                 self.pc += instruction.size;
-                self.display_registers();
             }
             Instruction::SCF => {
                 self.set_flag(Self::CARRY_FLAG);
@@ -1215,8 +1246,8 @@ impl CPU {
                 self.pc += instruction.size;
             }
             Instruction::CCF => {
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::HALF_CARRY_FLAG);
                 if self.get_flag(Self::CARRY_FLAG) {
                     self.reset_flag(Self::CARRY_FLAG);
                 } else {
@@ -1364,14 +1395,37 @@ impl CPU {
                 self.set_register(r, result);
                 self.pc += instruction.size;
             }
+            Instruction::RLC(r) => {
+                let reg_val = self.get_register(r);
+                let r7 = reg_val >> 7;
+                let result = (reg_val << 1) | r7;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if r7 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
             Instruction::RLA => {
                 let r = Register::A;
                 let reg_val = self.get_register(r);
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (reg_val << 1) | old_carry;
                 self.reset_all_flags();
-                self.zero_flag(result);
                 if reg_val & (1 << 7) != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::RLCA => {
+                let r = Register::A;
+                let reg_val = self.get_register(r);
+                let r7 = reg_val >> 7;
+                let result = (reg_val << 1) | r7;
+                self.reset_all_flags();
+                if r7 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
                 self.set_register(r, result);
@@ -1389,14 +1443,62 @@ impl CPU {
                 self.set_register(r, result);
                 self.pc += instruction.size;
             }
+            Instruction::RRC(r) => {
+                let reg_val = self.get_register(r);
+                let r0 = reg_val & 1;
+                let result = (reg_val >> 1) | (r0 << 7);
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if r0 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
             Instruction::RRA => {
                 let r = Register::A;
                 let reg_val = self.get_register(r);
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (reg_val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
-                self.zero_flag(result);
                 if reg_val & 1 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::RRCA => {
+                let r = Register::A;
+                let reg_val = self.get_register(r);
+                let r0 = reg_val & 1;
+                let result = (reg_val >> 1) | (r0 << 7);
+                self.reset_all_flags();
+                if r0 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::SLA(r) => {
+                let reg_val = self.get_register(r);
+                let r7 = reg_val >> 7;
+                let result = reg_val << 1;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if r7 != 0 {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::SRA(r) => {
+                let reg_val = self.get_register(r);
+                let r7 = reg_val >> 7;
+                let r0 = reg_val & 1;
+                let result = (reg_val >> 1) | (r7 << 7);
+                self.reset_all_flags();
+                self.zero_flag(result);
+                if r0 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
                 self.set_register(r, result);
@@ -1430,7 +1532,6 @@ impl CPU {
                 self.sp -= 1;
                 memory.write_byte(self.sp, self.pc.get_low());
                 self.pc = bytes2word(n, 0x00);
-                self.display_registers();
             }
             Instruction::EI => {
                 self.ime = true;
@@ -1442,14 +1543,15 @@ impl CPU {
             }
             _ => {
                 panic!(
-                    "Could not execute {:#04X?} with opcode {:#04X?}",
+                    "Could not execute {:#04X?} with opcode {:#04X?} at address {:#04X?}",
                     instruction,
-                    memory.read_byte_unsafe(self.pc)
+                    memory.read_byte_unsafe(self.pc),
+                    self.pc
                 );
             }
         }
 
-        self.display_registers();
+        self.display_registers(true);
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {}
@@ -1502,7 +1604,7 @@ impl CPU {
     fn half_carry_flag_adc(&mut self, b1: Byte, b2: Byte, cf: Byte) {
         assert!(cf <= 1);
         self.reset_flag(Self::HALF_CARRY_FLAG);
-        if (b1 & 0xF) + (b2 & 0xF) + 1 > 0x0F {
+        if (b1 & 0xF) + (b2 & 0xF) + cf > 0x0F {
             self.set_flag(Self::HALF_CARRY_FLAG);
         }
     }
@@ -1510,6 +1612,14 @@ impl CPU {
     fn half_carry_flag_sub(&mut self, b1: Byte, b2: Byte) {
         self.reset_flag(Self::HALF_CARRY_FLAG);
         if (b1 & 0x0F) < (b2 & 0x0F) {
+            self.set_flag(Self::HALF_CARRY_FLAG);
+        }
+    }
+
+    fn half_carry_flag_sbc(&mut self, b1: Byte, b2: Byte, cf: Byte) {
+        assert!(cf <= 1);
+        self.reset_flag(Self::HALF_CARRY_FLAG);
+        if (b1 & 0x0F) < (b2 & 0x0F) + cf {
             self.set_flag(Self::HALF_CARRY_FLAG);
         }
     }
@@ -1582,22 +1692,40 @@ impl CPU {
         }
     }
 
-    fn display_registers(&self) {
-        debug!("Registers:");
-        debug!(
-            "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
-            self.a, self.f, self.b, self.c,
-        );
-        debug!(
-            "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
-            self.d, self.e, self.h, self.l
-        );
-        debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
-        debug!(
-            "\tIME: {}\t Flags: {}",
-            if self.ime { "ENABLED" } else { "DISABLED" },
-            self.display_flags()
-        );
+    fn display_registers(&self, to_debug: bool) {
+        if to_debug {
+            debug!("Registers:");
+            debug!(
+                "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
+                self.a, self.f, self.b, self.c,
+            );
+            debug!(
+                "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
+                self.d, self.e, self.h, self.l
+            );
+            debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
+            debug!(
+                "\tIME: {}\t Flags: {}",
+                if self.ime { "ENABLED" } else { "DISABLED" },
+                self.display_flags()
+            );
+        } else {
+            info!("Registers:");
+            info!(
+                "\tA: {:#04X?}\tF: {:#04X?}\tB: {:#04X?}\tC: {:#04X?}",
+                self.a, self.f, self.b, self.c,
+            );
+            info!(
+                "\tD: {:#04X?}\tE: {:#04X?}\tH: {:#04X?}\tL: {:#04X?}",
+                self.d, self.e, self.h, self.l
+            );
+            info!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
+            info!(
+                "\tIME: {}\t Flags: {}",
+                if self.ime { "ENABLED" } else { "DISABLED" },
+                self.display_flags()
+            );
+        }
     }
 
     fn display_flags(&self) -> String {
