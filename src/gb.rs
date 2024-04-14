@@ -33,6 +33,7 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
+        self.cpu.pc = 0x100;
         loop {
             self.cpu.execute(&mut self.memory);
 

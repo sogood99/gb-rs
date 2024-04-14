@@ -1511,6 +1511,7 @@ mod tests {
 
         assert_eq!(cpu.h, 0x12);
         assert_eq!(cpu.l, 0x34);
+        assert_eq!(memory.read_byte(cpu.get_hl()).unwrap(), 0x20);
         assert_eq!(cpu.a, 0x30);
     }
 
@@ -1609,6 +1610,23 @@ mod tests {
         assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
         assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
         assert_eq!(cpu.get_flag(CPU::SUBTRACT_FLAG), false);
+    }
+
+    #[test]
+    fn execute_ldhlsp() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xF8, 0xFE]);
+
+        cpu.sp = 0x2;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.get_hl(), 0);
+        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
     }
 
     #[test]

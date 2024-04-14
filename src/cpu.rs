@@ -793,7 +793,7 @@ impl CPU {
             h: 0x01,
             l: 0x4d,
             sp: 0xfffe,
-            pc: 0x100, // currently start at 0x00,
+            pc: 0x00, // currently start at 0x00,
             ime: false,
         }
     }
@@ -1093,6 +1093,20 @@ impl CPU {
                 memory.write_byte(address, data);
                 self.pc += instruction.size;
             }
+            Instruction::LD_HL_SP(e) => {
+                let e_i16: i16 = e.into();
+                let e_u16 = e_i16 as Word; // first to byte (-1 => 255)
+                let result = self.sp.wrapping_add_signed(e.into());
+                self.reset_all_flags();
+                if (self.sp & 0xF) + (e_u16 & 0xF) > 0xF {
+                    self.set_flag(Self::HALF_CARRY_FLAG);
+                }
+                if (self.sp & 0xFF) + (e_u16 & 0xFF) > 0xFF {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.set_hl(result);
+                self.pc += instruction.size;
+            }
             Instruction::LD_HL_A_D => {
                 memory.write_byte(self.get_hl(), self.a);
                 self.set_hl(self.get_hl() - 1);
@@ -1305,17 +1319,18 @@ impl CPU {
                 }
             }
             Instruction::ADD_SP_E(e) => {
-                let (result, overflow) = self.sp.overflowing_add_signed(e.into());
-                self.pc += 2;
+                let e_i16: i16 = e.into();
+                let e_u16 = e_i16 as Word; // first to byte (-1 => 255)
+                let result = self.sp.wrapping_add_signed(e.into());
                 self.reset_all_flags();
-                if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
-                }
-                let e_u = (e as Byte) as Word; // first to byte (-1 => 255)
-                if (self.sp & 0xF) + (e_u & 0xF) > 0xF {
+                if (self.sp & 0xF) + (e_u16 & 0xF) > 0xF {
                     self.set_flag(Self::HALF_CARRY_FLAG);
                 }
+                if (self.sp & 0xFF) + (e_u16 & 0xFF) > 0xFF {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
                 self.sp = result;
+                self.pc += instruction.size;
             }
             Instruction::PUSH(rr) => {
                 self.pc += 1;
