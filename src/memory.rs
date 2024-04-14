@@ -8,8 +8,6 @@ pub struct Memory {
     memory: [Byte; MEMORY_SIZE],
 }
 
-pub struct MemoryReadError {}
-
 impl Memory {
     pub fn new() -> Self {
         Memory {

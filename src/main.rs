@@ -28,12 +28,11 @@ fn main() -> Result<(), String> {
                 .default_value(Path::new("assets").join("dmg_boot.bin").to_str().unwrap()),
         )
         .arg(
-            Arg::with_name("graphics")
-                .long("graphics")
+            Arg::with_name("no_graphics")
+                .long("no-graphics")
                 .help("Enables graphics")
                 .takes_value(false)
-                .required(false)
-                .default_value("true"), // Set default value to true
+                .required(false), // Set default value to true
         )
         .get_matches();
 
@@ -59,7 +58,7 @@ fn main() -> Result<(), String> {
         }
     };
 
-    let graphics_enabled = matches.is_present("graphics");
+    let graphics_enabled = !matches.is_present("no_graphics");
 
     let mut gameboy = GameBoy::new(graphics_enabled);
     gameboy.load_boot(boot_bin);

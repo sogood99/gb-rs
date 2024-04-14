@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use log::debug;
 use sdl2::{event::Event, keyboard::Keycode};
 
@@ -31,20 +33,22 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
-        // polling user inputs
+        self.cpu.pc = 0x100;
+
         loop {
             self.cpu.execute(&mut self.memory);
 
             self.cpu.handle_interrupts(&mut self.memory);
 
-            if self.memory.read_byte_unsafe(0xff02) == 0x81 {
-                let c = self.memory.read_byte_unsafe(0xff01);
+            if self.memory.read_byte_unsafe(0xff02) != 0 {
+                let c = self.memory.read_byte_unsafe(0xff01) as char;
                 print!("{}", c);
                 self.memory.write_byte(0xff02, 0);
             }
 
             // render graphics
             if let Some(ref mut graphics) = self.graphics {
+                // polling user inputs
                 for event in graphics.event_pump.poll_iter() {
                     match event {
                         Event::Quit { .. }
@@ -61,6 +65,7 @@ impl GameBoy {
                 }
                 graphics.render();
             }
+
             // run audio
         }
     }

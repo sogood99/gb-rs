@@ -1,8 +1,4 @@
-use std::time::Duration;
-
-use sdl2::{
-    event::Event, keyboard::Keycode, pixels::Color, render::Canvas, video::Window, EventPump, Sdl,
-};
+use sdl2::{pixels::Color, render::Canvas, video::Window, EventPump, Sdl};
 
 pub struct Graphics {
     pub context: Sdl,

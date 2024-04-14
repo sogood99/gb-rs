@@ -742,7 +742,7 @@ impl SizedInstruction {
                         Instruction::SET(b, r)
                     }
                 }
-                _ => panic!("Should not be contain any other cases"),
+                _ => panic!("Should not be contain any other cases {:#04X?}", opcode),
             }
         };
         Some(SizedInstruction {
@@ -1019,6 +1019,16 @@ impl CPU {
                 let data = memory.read_byte(address).unwrap();
                 self.a = data;
             }
+            Instruction::LD_NN_SP(nn) => {
+                self.pc += 3;
+                memory.write_byte(nn, self.sp.get_low());
+                let nn = nn + 1;
+                memory.write_byte(nn, self.sp.get_high());
+            }
+            Instruction::LD_SP_HL => {
+                self.sp = self.get_hl();
+                self.pc += instruction.size;
+            }
             Instruction::INC_R(r) => {
                 let reg_val = self.get_register(r);
                 let (result, _overflow) = reg_val.overflowing_add(1);
@@ -1233,7 +1243,7 @@ impl CPU {
                 self.pc += instruction.size;
             }
             _ => {
-                panic!("Unimplemented instruction");
+                panic!("Could not execute {:#04X?}", instruction);
             }
         }
 
