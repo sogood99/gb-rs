@@ -1263,18 +1263,18 @@ impl CPU {
 
                 if !sub_flag {
                     if carry || self.a > 0x99 {
-                        self.a += 0x60;
+                        self.a = self.a.wrapping_add(0x60);
                         self.set_flag(Self::CARRY_FLAG);
                     }
                     if half_carry || (self.a & 0xF) > 0x9 {
-                        self.a += 0x6;
+                        self.a = self.a.wrapping_add(0x6);
                     }
                 } else {
                     if carry {
-                        self.a -= 0x60;
+                        self.a = self.a.wrapping_sub(0x60);
                     }
                     if half_carry {
-                        self.a -= 0x6;
+                        self.a = self.a.wrapping_sub(0x6);
                     }
                 }
 
