@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{io, time::Duration};
 
 use log::debug;
 use sdl2::{event::Event, keyboard::Keycode};
@@ -33,8 +33,6 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
-        self.cpu.pc = 0x100;
-
         loop {
             self.cpu.execute(&mut self.memory);
 

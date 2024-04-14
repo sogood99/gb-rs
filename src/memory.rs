@@ -1,4 +1,4 @@
-use log::debug;
+use log::{debug, info};
 
 use crate::utils::{bytes2word, Address, Byte, ByteOP, Word};
 
@@ -21,7 +21,7 @@ impl Memory {
 
     pub fn load_rom_offset(&mut self, rom_data: Vec<Byte>, offset: Address) {
         let offset = offset.into();
-        debug!(
+        info!(
             "Size of rom is {:#04X?}, loaded at offset {:#04X?}",
             rom_data.len(),
             offset

@@ -784,16 +784,16 @@ impl CPU {
 
     pub fn new() -> Self {
         Self {
-            a: 0,
-            b: 0,
-            c: 0,
-            d: 0,
-            e: 0,
-            h: 0,
-            l: 0,
-            f: 0x00,
-            sp: 0xFFFE,
-            pc: 0x00, // currently start at 0x00,
+            a: 0x01,
+            f: 0xb0,
+            b: 0x00,
+            c: 0x13,
+            d: 0x00,
+            e: 0xd8,
+            h: 0x01,
+            l: 0x4d,
+            sp: 0xfffe,
+            pc: 0x100, // currently start at 0x00,
             ime: false,
         }
     }
@@ -1249,6 +1249,7 @@ impl CPU {
 
                 self.reset_flag(Self::HALF_CARRY_FLAG);
                 self.zero_flag(self.a);
+                self.pc += instruction.size;
             }
             Instruction::JP_NN(nn) => {
                 self.pc = nn;
@@ -1420,6 +1421,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 self.set_register(r, result);
+                self.pc += instruction.size;
             }
             Instruction::RST(n) => {
                 self.pc += 1;
