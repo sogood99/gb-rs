@@ -375,6 +375,8 @@ impl SizedInstruction {
     const ADD_HL_RR: OpCode = OpCode(0b0000_1001, 0b1100_1111);
     /// Add SP e
     const ADD_SP_E: OpCode = OpCode(0b1110_1000, 0b1111_1111);
+    /// Complement operators
+    const COMP_OP: OpCode = OpCode(0b0010_1111, 0b1110_1111);
     /// DAA
     const DAA: OpCode = OpCode(0x27, 0b1111_1111);
     /// Rotate accumulator
@@ -609,6 +611,13 @@ impl SizedInstruction {
         } else if Self::ADD_SP_E.matches(opcode) {
             let e = memory.read_byte(address + 1)? as SignedByte;
             (Instruction::ADD_SP_E(e), 2)
+        } else if Self::COMP_OP.matches(opcode) {
+            let instruction = if opcode & (1 << 4) > 0 {
+                Instruction::CCF
+            } else {
+                Instruction::CPL
+            };
+            (instruction, 1)
         } else if Self::ROT_ACC.matches(opcode) {
             let instruction = match opcode & (1 << 3) > 0 {
                 true => match opcode & (1 << 4) > 0 {
@@ -829,6 +838,19 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
+            Instruction::ADD_HL => {
+                let value = memory.read_byte(self.get_hl()).unwrap();
+                let (result, overflow) = self.a.overflowing_add(value);
+                self.zero_flag(result);
+                self.half_carry_flag_add(self.a, value);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = result;
+                self.pc += instruction.size;
+            }
             Instruction::SUB_R(r) => {
                 let reg_val = self.get_register(r);
                 let (result, overflow) = self.a.overflowing_sub(reg_val);
@@ -856,14 +878,23 @@ impl CPU {
                 self.a = result;
                 self.pc += instruction.size;
             }
-            Instruction::AND_N(n) => {
+            Instruction::AND_R(r) => {
+                let result = self.a & self.get_register(r);
+                self.a = result;
+                self.zero_flag(result);
+                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
                 self.pc += instruction.size;
+            }
+            Instruction::AND_N(n) => {
                 let result = self.a & n;
                 self.a = result;
                 self.zero_flag(result);
                 self.set_flag(Self::HALF_CARRY_FLAG);
                 self.reset_flag(Self::SUBTRACT_FLAG);
                 self.reset_flag(Self::CARRY_FLAG);
+                self.pc += instruction.size;
             }
             Instruction::OR_R(r) => {
                 let result = self.a | self.get_register(r);
@@ -875,6 +906,13 @@ impl CPU {
             Instruction::OR_HL => {
                 let value = memory.read_byte(self.get_hl()).unwrap();
                 let result = self.a | value;
+                self.reset_all_flags();
+                self.zero_flag(result);
+                self.a = result;
+                self.pc += instruction.size;
+            }
+            Instruction::OR_N(n) => {
+                let result = self.a | n;
                 self.reset_all_flags();
                 self.zero_flag(result);
                 self.a = result;
@@ -917,6 +955,20 @@ impl CPU {
                 }
                 self.pc += instruction.size;
             }
+            Instruction::CP_HL => {
+                let address = self.get_hl();
+                let val = memory.read_byte(address).unwrap();
+                let (result, overflow) = self.a.overflowing_sub(val);
+
+                self.zero_flag(result);
+                self.half_carry_flag_sub(self.a, val);
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.pc += instruction.size;
+            }
             Instruction::CP_N(n) => {
                 let (result, overflow) = self.a.overflowing_sub(n);
 
@@ -936,6 +988,22 @@ impl CPU {
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_adc(self.a, n, cf);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::CARRY_FLAG);
+                if overflow {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.a = res2;
+                self.pc += instruction.size;
+            }
+            Instruction::ADC_HL => {
+                let val = memory.read_byte(self.get_hl()).unwrap();
+                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let (res1, ovf1) = self.a.overflowing_add(val);
+                let (res2, ovf2) = res1.overflowing_add(cf);
+                let overflow = ovf1 || ovf2;
+                self.zero_flag(res2);
+                self.half_carry_flag_adc(self.a, val, cf);
                 self.reset_flag(Self::SUBTRACT_FLAG);
                 self.reset_flag(Self::CARRY_FLAG);
                 if overflow {
@@ -969,9 +1037,17 @@ impl CPU {
                 self.set_hl(self.get_hl() + 1);
                 self.pc += instruction.size;
             }
-            Instruction::LD_DE_A => {
-                let address = self.get_register16(Register16::DE);
-                memory.write_byte(address, self.a);
+            Instruction::LD_A_HL_D => {
+                self.a = memory
+                    .read_byte(self.get_hl())
+                    .expect("Could not read address");
+                self.set_hl(self.get_hl() - 1);
+                self.pc += instruction.size;
+            }
+            Instruction::LDH_A_C => {
+                let address = bytes2word(self.c, 0xFF);
+                let data = memory.read_byte(address).unwrap();
+                self.a = data;
                 self.pc += instruction.size;
             }
             Instruction::LDH_C_A => {
@@ -995,10 +1071,25 @@ impl CPU {
                 self.set_hl(self.get_hl() + 1);
                 self.pc += instruction.size;
             }
+            Instruction::LD_A_BC => {
+                self.pc += instruction.size;
+                let address = self.get_register16(Register16::BC);
+                self.a = memory.read_byte(address).unwrap();
+            }
             Instruction::LD_A_DE => {
                 self.pc += instruction.size;
                 let address = self.get_register16(Register16::DE);
-                self.a = memory.read_byte(address).expect("Memory Out of Bounds");
+                self.a = memory.read_byte(address).unwrap();
+            }
+            Instruction::LD_BC_A => {
+                let address = self.get_register16(Register16::BC);
+                memory.write_byte(address, self.a);
+                self.pc += instruction.size;
+            }
+            Instruction::LD_DE_A => {
+                let address = self.get_register16(Register16::DE);
+                memory.write_byte(address, self.a);
+                self.pc += instruction.size;
             }
             Instruction::LD_A_NN(nn) => {
                 self.pc += instruction.size;
@@ -1018,6 +1109,10 @@ impl CPU {
                 let address = bytes2word(n, 0xFF);
                 let data = memory.read_byte(address).unwrap();
                 self.a = data;
+            }
+            Instruction::LD_HL_N(n) => {
+                memory.write_byte(self.get_hl(), n);
+                self.pc += instruction.size;
             }
             Instruction::LD_NN_SP(nn) => {
                 self.pc += 3;
@@ -1088,12 +1183,72 @@ impl CPU {
                 self.set_hl(result);
                 self.pc += instruction.size;
             }
+            Instruction::SET(b, r) => {
+                let result = self.get_register(r) | (1 << b);
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
+            Instruction::RES(b, r) => {
+                let mask = !(1 << b);
+                let result = self.get_register(r) & mask;
+                self.set_register(r, result);
+                self.pc += instruction.size;
+            }
             Instruction::BIT(b, r) => {
                 let result = (self.get_register(r) & (1 << b)) >> b;
                 self.reset_flag(Self::SUBTRACT_FLAG);
                 self.set_flag(Self::HALF_CARRY_FLAG);
                 self.zero_flag(result);
                 self.pc += instruction.size;
+            }
+            Instruction::CPL => {
+                self.a = !self.a;
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.pc += instruction.size;
+                self.display_registers();
+            }
+            Instruction::SCF => {
+                self.set_flag(Self::CARRY_FLAG);
+                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(Self::HALF_CARRY_FLAG);
+                self.pc += instruction.size;
+            }
+            Instruction::CCF => {
+                self.set_flag(Self::SUBTRACT_FLAG);
+                self.set_flag(Self::HALF_CARRY_FLAG);
+                if self.get_flag(Self::CARRY_FLAG) {
+                    self.reset_flag(Self::CARRY_FLAG);
+                } else {
+                    self.set_flag(Self::CARRY_FLAG);
+                }
+                self.pc += instruction.size;
+            }
+            Instruction::DAA => {
+                // turn a into decimal form, follows the official implementation
+                let half_carry = self.get_flag(Self::HALF_CARRY_FLAG);
+                let carry = self.get_flag(Self::CARRY_FLAG);
+                let sub_flag = self.get_flag(Self::SUBTRACT_FLAG);
+
+                if !sub_flag {
+                    if carry || self.a > 0x99 {
+                        self.a += 0x60;
+                        self.set_flag(Self::CARRY_FLAG);
+                    }
+                    if half_carry || (self.a & 0xF) > 0x9 {
+                        self.a += 0x6;
+                    }
+                } else {
+                    if carry {
+                        self.a -= 0x60;
+                    }
+                    if half_carry {
+                        self.a -= 0x6;
+                    }
+                }
+
+                self.reset_flag(Self::HALF_CARRY_FLAG);
+                self.zero_flag(self.a);
             }
             Instruction::JP_NN(nn) => {
                 self.pc = nn;
@@ -1148,6 +1303,7 @@ impl CPU {
                 self.sp += 1;
                 let msb = memory.read_byte(self.sp).unwrap();
                 self.sp += 1;
+
                 self.set_register16(rr, bytes2word(lsb, msb));
             }
             Instruction::CALL(nn) => {
@@ -1185,6 +1341,15 @@ impl CPU {
                     self.sp += 1;
                     self.pc = bytes2word(lsb, msb);
                 }
+            }
+            Instruction::RETI => {
+                self.pc += 1;
+                let lsb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                let msb = memory.read_byte(self.sp).unwrap();
+                self.sp += 1;
+                self.pc = bytes2word(lsb, msb);
+                self.ime = true;
             }
             Instruction::RL(r) => {
                 let reg_val = self.get_register(r);
@@ -1246,6 +1411,24 @@ impl CPU {
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
+            }
+            Instruction::SWAP(r) => {
+                // test more
+                let reg_val = self.get_register(r);
+                let result = (reg_val >> 4) | ((reg_val & 0xf) << 4);
+
+                self.reset_all_flags();
+                self.zero_flag(result);
+                self.set_register(r, result);
+            }
+            Instruction::RST(n) => {
+                self.pc += 1;
+                self.sp -= 1;
+                memory.write_byte(self.sp, self.pc.get_high());
+                self.sp -= 1;
+                memory.write_byte(self.sp, self.pc.get_low());
+                self.pc = bytes2word(n, 0x00);
+                self.display_registers();
             }
             Instruction::EI => {
                 self.ime = true;
@@ -1379,6 +1562,7 @@ impl CPU {
             Register16::AF => {
                 self.a = word.get_high();
                 self.f = word.get_low();
+                self.f &= 0xf0;
             }
             Register16::HL => {
                 self.h = word.get_high();

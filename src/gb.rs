@@ -25,7 +25,7 @@ impl GameBoy {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
-        self.memory.load_rom_offset(rom_data, 0x100);
+        self.memory.load_rom(rom_data);
     }
 
     pub fn load_boot(&mut self, boot_data: Vec<u8>) {
@@ -41,7 +41,7 @@ impl GameBoy {
             self.cpu.handle_interrupts(&mut self.memory);
 
             // serial output debug
-            if self.memory.read_byte_unsafe(0xff02) == 0x81 {
+            if self.memory.read_byte_unsafe(0xff02) != 0 {
                 let c = self.memory.read_byte_unsafe(0xff01) as char;
                 print!("{}", c);
                 self.memory.write_byte(0xff02, 0);

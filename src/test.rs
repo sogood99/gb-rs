@@ -1574,4 +1574,104 @@ mod tests {
         assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
         assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
     }
+
+    #[test]
+    fn execute_swap() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x30]);
+
+        cpu.b = 0xef;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0xfe);
+        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::SUBTRACT_FLAG), false);
+    }
+
+    #[test]
+    fn execute_swap_zero() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x30]);
+
+        cpu.b = 0;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0);
+        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), true);
+        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::SUBTRACT_FLAG), false);
+    }
+
+    #[test]
+    fn execute_cpl() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0x2F]);
+
+        cpu.a = 0xe2;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.a, 0x1d);
+    }
+
+    #[test]
+    fn execute_set() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0xC0]);
+
+        cpu.b = 0xCA;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0xCB);
+
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0xC0]);
+
+        cpu.b = 0xCB;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0xCB);
+    }
+
+    #[test]
+    fn execute_res() {
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x80]);
+
+        cpu.b = 0xCB;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0xCA);
+
+        let mut cpu = CPU::new();
+        let mut memory = Memory::new();
+
+        memory.load_rom(vec![0xCB, 0x80]);
+
+        cpu.b = 0xCA;
+
+        cpu.execute(&mut memory);
+
+        assert_eq!(cpu.b, 0xCA);
+    }
 }
