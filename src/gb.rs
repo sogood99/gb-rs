@@ -1,9 +1,15 @@
 use std::{io, time::Duration};
 
-use log::debug;
+use log::{debug, info};
 use sdl2::{event::Event, keyboard::Keycode};
 
-use crate::{clock::Clock, cpu::CPU, graphics::Graphics, memory::Memory};
+use crate::{
+    clock::Clock,
+    cpu::{Instruction, SizedInstruction, CPU},
+    graphics::Graphics,
+    memory::{self, Memory},
+    utils::Address,
+};
 
 pub struct GameBoy {
     cpu: CPU,
@@ -13,9 +19,17 @@ pub struct GameBoy {
     dbg: Debugger,
 }
 
+/// Struct to hold all debugger constructs
 struct Debugger {
     pause: bool,
     step: bool,
+    breakpoints: Vec<Breakpoint>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum Breakpoint {
+    Inst(Instruction),
+    Addr(Address),
 }
 
 impl Debugger {
@@ -23,6 +37,7 @@ impl Debugger {
         Self {
             pause: false,
             step: false,
+            breakpoints: Vec::new(),
         }
     }
 
@@ -35,7 +50,20 @@ impl Debugger {
         self.pause = false;
     }
 
-    fn check_pause(&mut self) -> bool {
+    fn add_breakpoint(&mut self, breakpoint: Breakpoint) {
+        self.breakpoints.push(breakpoint);
+    }
+
+    fn check_breakpoints(&self, cpu: &CPU, memory: &Memory) -> bool {
+        let instruction = SizedInstruction::decode(memory, cpu.pc)
+            .unwrap()
+            .instruction;
+        self.breakpoints.contains(&Breakpoint::Inst(instruction))
+            || self.breakpoints.contains(&Breakpoint::Addr(cpu.pc))
+    }
+
+    /// Check if
+    fn check_pause(&mut self, cpu: &CPU, memory: &Memory) -> bool {
         if self.pause {
             true
         } else if self.step {
@@ -43,6 +71,11 @@ impl Debugger {
             self.pause = true;
             self.step = false;
             false
+        } else if self.check_breakpoints(cpu, memory) {
+            self.pause = true;
+            info!("Breakpoint: {:#04X?}", cpu.pc);
+            cpu.display_registers(false);
+            true
         } else {
             false
         }
@@ -73,6 +106,9 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
+        // self.dbg.add_breakpoint(Breakpoint::Addr(0x50));
+        // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
+
         loop {
             // non gb related keydowns
             if let Some(ref mut graphics) = self.graphics {
@@ -100,7 +136,7 @@ impl GameBoy {
                 }
             }
 
-            if self.dbg.check_pause() {
+            if self.dbg.check_pause(&self.cpu, &self.memory) {
                 continue;
             }
 

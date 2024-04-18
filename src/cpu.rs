@@ -389,7 +389,7 @@ impl SizedInstruction {
     const IR: OpCode = OpCode(0b1111_0011, 0b1111_0111);
 
     /// Decode the opcode at address into a SizedInstruction
-    pub fn decode(memory: &mut Memory, address: Address) -> Option<Self> {
+    pub fn decode(memory: &Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
         debug!("Address: {:#04X?}, Opcode: {:#04X?}", address, opcode);
         let (instruction, size) = if Self::NOP.matches(opcode) {
@@ -653,7 +653,7 @@ impl SizedInstruction {
     }
 
     /// Decode CB-Prefixed instructions
-    fn decode_cb(memory: &mut Memory, address: Address) -> Option<Self> {
+    fn decode_cb(memory: &Memory, address: Address) -> Option<Self> {
         let opcode = memory.read_byte(address)?;
         debug!("CB-Prefixed OpCode: {:#04X?}", opcode);
         let r = Register::get_r(opcode);
@@ -1854,10 +1854,13 @@ impl CPU {
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {
+        if !self.ime {
+            return;
+        }
+
         let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS).unwrap();
         let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS).unwrap();
-        let mut flag_bytes = interrupt_enable & interrupt_flag & (self.ime as Byte);
-
+        let mut flag_bytes = interrupt_enable & interrupt_flag;
         if flag_bytes != 0 {
             self.ime = false;
             self.push_pc_stack(memory);
@@ -1869,14 +1872,18 @@ impl CPU {
                 info!("LCD Interrupt");
                 Self::reset_memory_flag(&mut flag_bytes, Self::LCD_FLAG);
                 self.pc = 0x48;
-            } else if Self::get_memory_flag(flag_bytes, Self::JOYPAD_FLAG) {
-                info!("JOYPAD Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
-                self.pc = 0x50;
             } else if Self::get_memory_flag(flag_bytes, Self::TIMER_FLAG) {
                 info!("TIMER Interrupt");
                 Self::reset_memory_flag(&mut flag_bytes, Self::TIMER_FLAG);
+                self.pc = 0x50;
+            } else if Self::get_memory_flag(flag_bytes, Self::SERIAL_FLAG) {
+                info!("SERIAL Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::SERIAL_FLAG);
                 self.pc = 0x58;
+            } else if Self::get_memory_flag(flag_bytes, Self::JOYPAD_FLAG) {
+                info!("JOYPAD Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
+                self.pc = 0x60;
             }
         }
         memory.write_byte(Self::INTERRUPT_FLAG_ADDRESS, flag_bytes);
@@ -2057,7 +2064,7 @@ impl CPU {
         self.pc = bytes2word(lsb, msb);
     }
 
-    fn display_registers(&self, to_debug: bool) {
+    pub fn display_registers(&self, to_debug: bool) {
         if to_debug {
             debug!("Registers:");
             debug!(

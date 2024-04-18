@@ -1,3 +1,5 @@
+use log::info;
+
 use crate::{
     cpu::CPU,
     memory::Memory,
@@ -33,7 +35,7 @@ impl Clock {
         }
 
         // handle tima
-        let tac = memory.read_byte_unsafe(Self::TMA_ADDRESS);
+        let tac = memory.read_byte_unsafe(Self::TAC_ADDRESS);
         if CPU::get_memory_flag(tac, Self::TAC_ENABLE_FLAG) {
             self.timer_counter += 4 * (cycles as u32);
 
