@@ -1226,7 +1226,7 @@ impl CPU {
                 }
                 self.set_hl(result);
                 self.pc += instruction.size;
-                2
+                3
             }
             Instruction::LD_HL_A_D => {
                 memory.write_byte(self.get_hl(), self.a);
