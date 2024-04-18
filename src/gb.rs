@@ -140,7 +140,11 @@ impl GameBoy {
                 continue;
             }
 
-            let cycles = self.cpu.execute(&mut self.memory);
+            let cycles = if self.cpu.halt {
+                1
+            } else {
+                self.cpu.execute(&mut self.memory)
+            };
 
             self.clock.tick(cycles, &mut self.memory);
 

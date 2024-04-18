@@ -769,10 +769,11 @@ pub struct CPU {
     pub e: Byte,
     pub h: Byte,
     pub l: Byte,
-    pub f: Byte,   // flag
-    pub sp: Word,  // stack pointer
-    pub pc: Word,  // program counter
-    pub ime: bool, // Interrupt Master Enable Flag
+    pub f: Byte,    // flag
+    pub sp: Word,   // stack pointer
+    pub pc: Word,   // program counter
+    pub ime: bool,  // Interrupt Master Enable Flag
+    pub halt: bool, // Interrupt Master Enable Flag
 }
 
 impl CPU {
@@ -804,6 +805,7 @@ impl CPU {
             sp: 0x00,
             pc: 0x00, // currently start at 0x00,
             ime: false,
+            halt: false,
         }
     }
 
@@ -821,6 +823,7 @@ impl CPU {
             sp: 0xfffe,
             pc: 0x100, // currently start at 0x100,
             ime: false,
+            halt: false,
         }
     }
 
@@ -1839,6 +1842,11 @@ impl CPU {
                 self.pc += instruction.size;
                 1
             }
+            Instruction::HALT => {
+                self.halt = true;
+                self.pc += 1;
+                0
+            }
             _ => {
                 panic!(
                     "Could not execute {:#04X?} with opcode {:#04X?} at address {:#04X?}",
@@ -1854,13 +1862,18 @@ impl CPU {
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {
-        if !self.ime {
-            return;
-        }
-
         let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS).unwrap();
         let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS).unwrap();
         let mut flag_bytes = interrupt_enable & interrupt_flag;
+
+        // handle halt
+        if flag_bytes != 0 || self.ime {
+            self.halt = false;
+        }
+
+        if !self.ime {
+            return;
+        }
         if flag_bytes != 0 {
             self.ime = false;
             self.push_pc_stack(memory);
