@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use crate::clock::Clock;
     use crate::cpu::{Condition, Instruction, Register, Register16, SizedInstruction, CPU};
     use crate::memory::Memory;
 
@@ -1479,6 +1480,7 @@ mod tests {
     fn execute_addr() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         cpu.pc = 0;
         memory.load_rom(vec![0x80]);
@@ -1488,7 +1490,7 @@ mod tests {
         cpu.b = 0x20;
 
         // Execute ADD instruction
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.a, 0x30);
         assert_eq!(cpu.b, 0x20);
@@ -1498,6 +1500,7 @@ mod tests {
     fn execute_addhl() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0x86]);
 
@@ -1507,7 +1510,7 @@ mod tests {
 
         memory.write_byte(0x1234, 0x20);
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.h, 0x12);
         assert_eq!(cpu.l, 0x34);
@@ -1519,12 +1522,13 @@ mod tests {
     fn execute_addn() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xC6, 0x20]);
 
         cpu.a = 0x10;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.a, 0x30);
     }
@@ -1533,13 +1537,14 @@ mod tests {
     fn execute_xor() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xA8]);
 
         cpu.a = 0b11001100;
         cpu.b = 0b10101010;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.a, 0b01100110);
     }
@@ -1548,44 +1553,47 @@ mod tests {
     fn execute_addspe() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xE8, 0xfe]);
 
         cpu.sp = 1;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.sp, 0xffff);
         assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
     }
 
     #[test]
     fn execute_addspe_hc() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xE8, 0xff]);
 
         cpu.sp = 0xf;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.sp, 0xe);
         assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
     }
 
     #[test]
     fn execute_swap() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0x30]);
 
         cpu.b = 0xef;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xfe);
         assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
@@ -1598,12 +1606,13 @@ mod tests {
     fn execute_swap_zero() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0x30]);
 
         cpu.b = 0;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0);
         assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), true);
@@ -1616,16 +1625,17 @@ mod tests {
     fn execute_ldhlsp() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xF8, 0xFE]);
 
         cpu.sp = 0x2;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.get_hl(), 0);
         assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
         assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
     }
 
@@ -1633,12 +1643,13 @@ mod tests {
     fn execute_cpl() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0x2F]);
 
         cpu.a = 0xe2;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.a, 0x1d);
     }
@@ -1647,23 +1658,25 @@ mod tests {
     fn execute_set() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0xC0]);
 
         cpu.b = 0xCA;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xCB);
 
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0xC0]);
 
         cpu.b = 0xCB;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xCB);
     }
@@ -1672,23 +1685,25 @@ mod tests {
     fn execute_res() {
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0x80]);
 
         cpu.b = 0xCB;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xCA);
 
         let mut cpu = CPU::new();
         let mut memory = Memory::new();
+        let mut clock = Clock::new();
 
         memory.load_rom(vec![0xCB, 0x80]);
 
         cpu.b = 0xCA;
 
-        cpu.execute(&mut memory);
+        cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xCA);
     }

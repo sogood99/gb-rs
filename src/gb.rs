@@ -140,6 +140,7 @@ impl GameBoy {
                 continue;
             }
 
+            // start executing gb
             if self.cpu.halt {
                 self.clock.tick(1, &mut self.memory);
             } else {
@@ -147,6 +148,8 @@ impl GameBoy {
             }
 
             self.cpu.handle_interrupts(&mut self.memory);
+
+            self.cpu.ime_step();
 
             // serial output debug
             if self.memory.read_byte_unsafe(0xff02) != 0 {

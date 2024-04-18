@@ -770,11 +770,11 @@ pub struct CPU {
     pub e: Byte,
     pub h: Byte,
     pub l: Byte,
-    pub f: Byte,    // flag
-    pub sp: Word,   // stack pointer
-    pub pc: Word,   // program counter
-    pub ime: bool,  // Interrupt Master Enable Flag
-    pub halt: bool, // Interrupt Master Enable Flag
+    pub f: Byte,                    // flag
+    pub sp: Word,                   // stack pointer
+    pub pc: Word,                   // program counter
+    pub ime: (Option<usize>, bool), // Interrupt Master Enable Flag, left is countdown (if exists), right is the flag
+    pub halt: bool,                 // Halt flag
 }
 
 impl CPU {
@@ -805,7 +805,7 @@ impl CPU {
             l: 0x00,
             sp: 0x00,
             pc: 0x00, // currently start at 0x00,
-            ime: false,
+            ime: (None, false),
             halt: false,
         }
     }
@@ -823,7 +823,7 @@ impl CPU {
             l: 0x4d,
             sp: 0xfffe,
             pc: 0x100, // currently start at 0x100,
-            ime: false,
+            ime: (None, false),
             halt: false,
         }
     }
@@ -1584,7 +1584,7 @@ impl CPU {
             Instruction::RETI => {
                 self.pc += 1;
                 self.pop_pc_stack(memory);
-                self.ime = true;
+                self.ime_enable_no_delay();
                 clock.tick(4, memory);
             }
             Instruction::RL(r) => {
@@ -1862,18 +1862,19 @@ impl CPU {
                 clock.tick(4, memory);
             }
             Instruction::EI => {
-                self.ime = true;
+                self.ime_enable();
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::DI => {
-                self.ime = false;
+                self.ime_disable();
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::HALT => {
                 self.halt = true;
                 self.pc += 1;
+                clock.tick(1, memory);
             }
             _ => {
                 panic!(
@@ -1894,15 +1895,15 @@ impl CPU {
         let mut flag_bytes = interrupt_enable & interrupt_flag;
 
         // handle halt
-        if flag_bytes != 0 || self.ime {
+        if flag_bytes != 0 || self.get_ime() {
             self.halt = false;
         }
 
-        if !self.ime {
+        if !self.get_ime() {
             return;
         }
         if flag_bytes != 0 {
-            self.ime = false;
+            self.ime_disable();
             self.push_pc_stack(memory);
             if Self::get_memory_flag(flag_bytes, Self::VBLANK_FLAG) {
                 info!("VBLANK Interrupt");
@@ -2104,6 +2105,40 @@ impl CPU {
         self.pc = bytes2word(lsb, msb);
     }
 
+    /// Get ime flag
+    fn get_ime(&self) -> bool {
+        self.ime.1
+    }
+
+    /// Enable the ime flag
+    fn ime_enable(&mut self) {
+        if self.ime.0.is_none() {
+            self.ime.0 = Some(2);
+        }
+    }
+
+    /// Enable ime flag no delay
+    fn ime_enable_no_delay(&mut self) {
+        self.ime.1 = true;
+    }
+
+    /// Disable the ime flag
+    fn ime_disable(&mut self) {
+        self.ime = (None, false);
+    }
+
+    /// Step the ime delay
+    pub fn ime_step(&mut self) {
+        if let Some(mut delay) = self.ime.0 {
+            delay -= 1;
+            if delay == 0 {
+                self.ime = (None, true);
+            } else {
+                self.ime.0 = Some(delay);
+            }
+        }
+    }
+
     pub fn display_registers(&self, to_debug: bool) {
         if to_debug {
             debug!("Registers:");
@@ -2118,7 +2153,7 @@ impl CPU {
             debug!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
             debug!(
                 "\tIME: {}\t Flags: {}",
-                if self.ime { "ENABLED" } else { "DISABLED" },
+                if self.ime.1 { "ENABLED" } else { "DISABLED" },
                 self.display_flags()
             );
         } else {
@@ -2134,7 +2169,7 @@ impl CPU {
             info!("\tSP: {:#06X?}\tPC: {:#06X}", self.sp, self.pc);
             info!(
                 "\tIME: {}\t Flags: {}",
-                if self.ime { "ENABLED" } else { "DISABLED" },
+                if self.ime.1 { "ENABLED" } else { "DISABLED" },
                 self.display_flags()
             );
         }
