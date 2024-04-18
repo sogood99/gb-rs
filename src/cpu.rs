@@ -782,7 +782,33 @@ impl CPU {
     pub const HALF_CARRY_FLAG: Byte = 0b00100000;
     pub const CARRY_FLAG: Byte = 0b00010000;
 
+    // ----- memory flag -----
+    pub const INTERRUPT_FLAG_ADDRESS: Address = 0xFF0F;
+    pub const INTERRUPT_ENABLE_ADDRESS: Address = 0xFFFF;
+    pub const VBLANK_FLAG: Byte = 0b1;
+    pub const LCD_FLAG: Byte = 0b10;
+    pub const TIMER_FLAG: Byte = 0b100;
+    pub const SERIAL_FLAG: Byte = 0b1000;
+    pub const JOYPAD_FLAG: Byte = 0b10000;
+
     pub fn new() -> Self {
+        Self {
+            a: 0x00,
+            f: 0x00,
+            b: 0x00,
+            c: 0x00,
+            d: 0x00,
+            e: 0x00,
+            h: 0x00,
+            l: 0x00,
+            sp: 0x00,
+            pc: 0x00, // currently start at 0x00,
+            ime: false,
+        }
+    }
+
+    pub fn new_skip_boot() -> Self {
+        // skip the boot step, and set the register results
         Self {
             a: 0x01,
             f: 0xb0,
@@ -793,12 +819,13 @@ impl CPU {
             h: 0x01,
             l: 0x4d,
             sp: 0xfffe,
-            pc: 0x00, // currently start at 0x00,
+            pc: 0x100, // currently start at 0x100,
             ime: false,
         }
     }
 
-    pub fn execute(&mut self, memory: &mut Memory) {
+    /// Execute the instruction, and return the clock cycles used
+    pub fn execute(&mut self, memory: &mut Memory) -> Byte {
         let instruction = match SizedInstruction::decode(memory, self.pc) {
             Some(ins) => ins,
             None => panic!("Could not decode {:#04X?}", memory.read_byte(self.pc)),
@@ -1419,12 +1446,8 @@ impl CPU {
                 self.sp -= 1;
                 let data = self.get_register16(rr);
                 memory.write_byte(self.sp, data.get_high());
-                // debug!("{:#04X?} : {:#04X?}", self.sp, memory.read_byte(self.sp));
                 self.sp -= 1;
                 memory.write_byte(self.sp, data.get_low());
-                // debug!("{:#04X?} : {:#04X?}", self.sp, memory.read_byte(self.sp));
-                // self.display_registers();
-                // panic!();
             }
             Instruction::POP(rr) => {
                 self.pc += 1;
@@ -1437,47 +1460,29 @@ impl CPU {
             }
             Instruction::CALL(nn) => {
                 self.pc += 3;
-                self.sp -= 1;
-                memory.write_byte(self.sp, self.pc.get_high());
-                self.sp -= 1;
-                memory.write_byte(self.sp, self.pc.get_low());
+                self.push_pc_stack(memory);
                 self.pc = nn;
             }
             Instruction::CALL_CC(cc, nn) => {
                 self.pc += 3;
                 if self.get_condition(cc) {
-                    self.sp -= 1;
-                    memory.write_byte(self.sp, self.pc.get_high());
-                    self.sp -= 1;
-                    memory.write_byte(self.sp, self.pc.get_low());
+                    self.push_pc_stack(memory);
                     self.pc = nn;
                 }
             }
             Instruction::RET => {
                 self.pc += 1;
-                let lsb = memory.read_byte(self.sp).unwrap();
-                self.sp += 1;
-                let msb = memory.read_byte(self.sp).unwrap();
-                self.sp += 1;
-                self.pc = bytes2word(lsb, msb);
+                self.pop_pc_stack(memory);
             }
             Instruction::RET_CC(cc) => {
                 self.pc += 1;
                 if self.get_condition(cc) {
-                    let lsb = memory.read_byte(self.sp).unwrap();
-                    self.sp += 1;
-                    let msb = memory.read_byte(self.sp).unwrap();
-                    self.sp += 1;
-                    self.pc = bytes2word(lsb, msb);
+                    self.pop_pc_stack(memory);
                 }
             }
             Instruction::RETI => {
                 self.pc += 1;
-                let lsb = memory.read_byte(self.sp).unwrap();
-                self.sp += 1;
-                let msb = memory.read_byte(self.sp).unwrap();
-                self.sp += 1;
-                self.pc = bytes2word(lsb, msb);
+                self.pop_pc_stack(memory);
                 self.ime = true;
             }
             Instruction::RL(r) => {
@@ -1714,10 +1719,7 @@ impl CPU {
             }
             Instruction::RST(n) => {
                 self.pc += 1;
-                self.sp -= 1;
-                memory.write_byte(self.sp, self.pc.get_high());
-                self.sp -= 1;
-                memory.write_byte(self.sp, self.pc.get_low());
+                self.push_pc_stack(memory);
                 self.pc = bytes2word(n, 0x00);
             }
             Instruction::EI => {
@@ -1739,9 +1741,36 @@ impl CPU {
         }
 
         self.display_registers(true);
+        1
     }
 
-    pub fn handle_interrupts(&mut self, memory: &mut Memory) {}
+    pub fn handle_interrupts(&mut self, memory: &mut Memory) {
+        let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS).unwrap();
+        let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS).unwrap();
+        let mut flag_bytes = interrupt_enable & interrupt_flag & (self.ime as Byte);
+
+        if flag_bytes != 0 {
+            self.push_pc_stack(memory);
+            if Self::get_memory_flag(flag_bytes, Self::VBLANK_FLAG) {
+                info!("VBLANK Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::VBLANK_FLAG);
+                self.pc = 0x40;
+            } else if Self::get_memory_flag(flag_bytes, Self::LCD_FLAG) {
+                info!("LCD Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::LCD_FLAG);
+                self.pc = 0x48;
+            } else if Self::get_memory_flag(flag_bytes, Self::JOYPAD_FLAG) {
+                info!("JOYPAD Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
+                self.pc = 0x50;
+            } else if Self::get_memory_flag(flag_bytes, Self::TIMER_FLAG) {
+                info!("TIMER Interrupt");
+                Self::reset_memory_flag(&mut flag_bytes, Self::TIMER_FLAG);
+                self.pc = 0x58;
+            }
+        }
+        memory.write_byte(Self::INTERRUPT_FLAG_ADDRESS, flag_bytes);
+    }
 
     pub fn get_hl(&self) -> Word {
         self.get_register16(Register16::HL)
@@ -1752,19 +1781,41 @@ impl CPU {
     }
 
     pub fn get_flag(&self, flag: Byte) -> bool {
+        assert_eq!(flag.count_ones(), 1);
         (self.f & flag) > 0
     }
 
     fn set_flag(&mut self, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
         self.f |= flag;
     }
 
     fn reset_flag(&mut self, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
         self.f &= !flag;
     }
 
     fn reset_all_flags(&mut self) {
         self.f = 0;
+    }
+
+    pub fn get_memory_flag(flag_byte: Byte, flag: Byte) -> bool {
+        assert_eq!(flag.count_ones(), 1);
+        (flag_byte & flag) > 0
+    }
+
+    pub fn set_memory_flag(flag_byte: &mut Byte, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
+        *flag_byte = *flag_byte | flag;
+    }
+
+    pub fn reset_memory_flag(flag_byte: &mut Byte, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
+        *flag_byte = *flag_byte & !flag;
+    }
+
+    pub fn reset_all_memory_flags(flag_byte: &mut Byte) {
+        *flag_byte = 0;
     }
 
     fn zero_flag(&mut self, result: Byte) {
@@ -1877,6 +1928,23 @@ impl CPU {
             Condition::NotCarry => !self.get_flag(Self::CARRY_FLAG),
             Condition::Carry => self.get_flag(Self::CARRY_FLAG),
         }
+    }
+
+    /// Push pc register values to [sp-1],[sp-2]
+    fn push_pc_stack(&mut self, memory: &mut Memory) {
+        self.sp -= 1;
+        memory.write_byte(self.sp, self.pc.get_high());
+        self.sp -= 1;
+        memory.write_byte(self.sp, self.pc.get_low());
+    }
+
+    /// Pop pc register values from [sp+1],[sp+2]
+    fn pop_pc_stack(&mut self, memory: &mut Memory) {
+        let lsb = memory.read_byte(self.sp).unwrap();
+        self.sp += 1;
+        let msb = memory.read_byte(self.sp).unwrap();
+        self.sp += 1;
+        self.pc = bytes2word(lsb, msb);
     }
 
     fn display_registers(&self, to_debug: bool) {

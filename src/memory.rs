@@ -70,4 +70,11 @@ impl Memory {
     pub fn write_byte_unsafe(&mut self, address: Address, byte: Byte) {
         self.memory[address as usize] = byte;
     }
+
+    pub fn wrapping_add(&mut self, address: Address, value: Byte) {
+        assert!((address as usize) < MEMORY_SIZE);
+        let mut mem_val = self.read_byte_unsafe(address);
+        mem_val = mem_val.wrapping_add(value);
+        self.write_byte_unsafe(address, mem_val);
+    }
 }
