@@ -1267,31 +1267,36 @@ impl CPU {
             }
             Instruction::LD_A_NN(nn) => {
                 self.pc += instruction.size;
+                clock.tick(2, memory);
                 self.a = memory.read_byte(nn).unwrap();
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::LD_NN_A(nn) => {
+                clock.tick(2, memory);
                 memory.write_byte(nn, self.a);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::LDH_N_A(n) => {
                 self.pc += 2;
                 let address = bytes2word(n, 0xFF);
+                clock.tick(1, memory);
                 memory.write_byte(address, self.a);
-                clock.tick(3, memory);
+                clock.tick(2, memory);
             }
             Instruction::LDH_A_N(n) => {
                 self.pc += 2;
                 let address = bytes2word(n, 0xFF);
+                clock.tick(1, memory);
                 let data = memory.read_byte(address).unwrap();
                 self.a = data;
-                clock.tick(3, memory);
+                clock.tick(2, memory);
             }
             Instruction::LD_HL_N(n) => {
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), n);
                 self.pc += instruction.size;
-                clock.tick(3, memory);
+                clock.tick(2, memory);
             }
             Instruction::LD_NN_SP(nn) => {
                 self.pc += 3;
@@ -1325,9 +1330,10 @@ impl CPU {
                 self.half_carry_flag_add(val, 1);
                 self.reset_flag(Self::SUBTRACT_FLAG);
 
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
+                clock.tick(2, memory);
                 self.pc += instruction.size;
-                clock.tick(3, memory);
             }
             Instruction::DEC_R(r) => {
                 let reg_val = self.get_register(r);
@@ -1349,9 +1355,10 @@ impl CPU {
                 self.zero_flag(result);
                 self.half_carry_flag_sub(val, 1);
                 self.set_flag(Self::SUBTRACT_FLAG);
+                clock.tick(1, memory);
                 memory.write_byte(address, result);
+                clock.tick(2, memory);
                 self.pc += instruction.size;
-                clock.tick(3, memory);
             }
             Instruction::INC_RR(rr) => {
                 let reg_val = self.get_register16(rr);
@@ -1388,10 +1395,12 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SET_HL(b) => {
+                clock.tick(1, memory);
                 let result = memory.read_byte(self.get_hl()).unwrap() | (1 << b);
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RES(b, r) => {
                 let mask = !(1 << b);
@@ -1401,11 +1410,13 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::RES_HL(b) => {
+                clock.tick(1, memory);
                 let mask = !(1 << b);
                 let result = memory.read_byte(self.get_hl()).unwrap() & mask;
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::BIT(b, r) => {
                 let result = (self.get_register(r) & (1 << b)) >> b;
@@ -1416,12 +1427,13 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::BIT_HL(b) => {
+                clock.tick(1, memory);
                 let result = (memory.read_byte(self.get_hl()).unwrap() & (1 << b)) >> b;
                 self.reset_flag(Self::SUBTRACT_FLAG);
                 self.set_flag(Self::HALF_CARRY_FLAG);
                 self.zero_flag(result);
                 self.pc += instruction.size;
-                clock.tick(3, memory);
+                clock.tick(2, memory);
             }
             Instruction::CPL => {
                 self.a = !self.a;
@@ -1589,6 +1601,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::RL_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (val << 1) | old_carry;
@@ -1597,9 +1610,10 @@ impl CPU {
                 if val & (1 << 7) != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RLC(r) => {
                 let reg_val = self.get_register(r);
@@ -1615,6 +1629,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::RLC_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let r7 = val >> 7;
                 let result = (val << 1) | r7;
@@ -1623,9 +1638,10 @@ impl CPU {
                 if r7 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RLA => {
                 let r = Register::A;
@@ -1667,6 +1683,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::RR_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (val >> 1) | (old_carry << 7);
@@ -1675,9 +1692,10 @@ impl CPU {
                 if val & 1 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RRC(r) => {
                 let reg_val = self.get_register(r);
@@ -1693,6 +1711,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::RRC_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let r0 = val & 1;
                 let result = (val >> 1) | (r0 << 7);
@@ -1701,9 +1720,10 @@ impl CPU {
                 if r0 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RRA => {
                 let r = Register::A;
@@ -1745,6 +1765,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SLA_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let r7 = val >> 7;
                 let result = val << 1;
@@ -1753,9 +1774,10 @@ impl CPU {
                 if r7 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::SRA(r) => {
                 let reg_val = self.get_register(r);
@@ -1772,6 +1794,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SRA_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let r7 = val >> 7;
                 let r0 = val & 1;
@@ -1781,9 +1804,10 @@ impl CPU {
                 if r0 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::SRL(r) => {
                 let reg_val = self.get_register(r);
@@ -1798,6 +1822,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SRL_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let result = val >> 1;
                 self.reset_all_flags();
@@ -1805,9 +1830,10 @@ impl CPU {
                 if val & 1 != 0 {
                     self.set_flag(Self::CARRY_FLAG);
                 }
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::SWAP(r) => {
                 let reg_val = self.get_register(r);
@@ -1819,13 +1845,15 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SWAP_HL => {
+                clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl()).unwrap();
                 let result = (val >> 4) | ((val & 0xf) << 4);
                 self.reset_all_flags();
                 self.zero_flag(result);
+                clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
-                clock.tick(4, memory);
+                clock.tick(2, memory);
             }
             Instruction::RST(n) => {
                 self.pc += 1;
