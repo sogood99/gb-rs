@@ -26,9 +26,9 @@ impl Clock {
         }
     }
 
-    pub fn tick(&mut self, cycles: u8, memory: &mut Memory) {
+    pub fn tick(&mut self, mcycles: u8, memory: &mut Memory) {
         // handle divider register
-        let (new_div, overflow) = self.div_counter.overflowing_add(cycles);
+        let (new_div, overflow) = self.div_counter.overflowing_add(mcycles);
         self.div_counter = new_div;
         if overflow {
             memory.wrapping_add(Self::DIV_ADDRESS, 1);
@@ -36,8 +36,8 @@ impl Clock {
 
         // handle tima
         let tac = memory.read_byte_unsafe(Self::TAC_ADDRESS);
-        if CPU::get_memory_flag(tac, Self::TAC_ENABLE_FLAG) {
-            self.timer_counter += 4 * (cycles as u32);
+        if Memory::get_flag(tac, Self::TAC_ENABLE_FLAG) {
+            self.timer_counter += 4 * (mcycles as u32);
 
             let frequency = match tac & Self::TAC_CLOCK_SELECT {
                 0 => 4096,
@@ -53,7 +53,7 @@ impl Clock {
                 if memory.read_byte_unsafe(Self::TIMA_ADDRESS) == 0 {
                     // set timer interrupt and reset timer
                     let mut interrupt_flags = memory.read_byte_unsafe(CPU::INTERRUPT_FLAG_ADDRESS);
-                    CPU::set_memory_flag(&mut interrupt_flags, CPU::TIMER_FLAG);
+                    Memory::set_flag(&mut interrupt_flags, CPU::TIMER_FLAG);
                     memory.write_byte_unsafe(CPU::INTERRUPT_FLAG_ADDRESS, interrupt_flags);
 
                     let tma = memory.read_byte_unsafe(Self::TMA_ADDRESS);

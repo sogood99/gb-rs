@@ -77,4 +77,23 @@ impl Memory {
         mem_val = mem_val.wrapping_add(value);
         self.write_byte_unsafe(address, mem_val);
     }
+
+    pub fn get_flag(flag_byte: Byte, flag: Byte) -> bool {
+        assert_eq!(flag.count_ones(), 1);
+        (flag_byte & flag) > 0
+    }
+
+    pub fn set_flag(flag_byte: &mut Byte, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
+        *flag_byte = *flag_byte | flag;
+    }
+
+    pub fn reset_flag(flag_byte: &mut Byte, flag: Byte) {
+        assert_eq!(flag.count_ones(), 1);
+        *flag_byte = *flag_byte & !flag;
+    }
+
+    pub fn reset_all_flags(flag_byte: &mut Byte) {
+        *flag_byte = 0;
+    }
 }

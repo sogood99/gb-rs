@@ -7,7 +7,7 @@ use crate::{
     clock::Clock,
     cpu::{Instruction, SizedInstruction, CPU},
     graphics::Graphics,
-    memory::{self, Memory},
+    memory::Memory,
     utils::Address,
 };
 
@@ -85,7 +85,7 @@ impl Debugger {
 impl GameBoy {
     pub fn new(graphics_enabled: bool) -> Self {
         GameBoy {
-            cpu: CPU::new_skip_boot(),
+            cpu: CPU::new(),
             memory: Memory::new(),
             graphics: if graphics_enabled {
                 Some(Graphics::new())
@@ -98,7 +98,7 @@ impl GameBoy {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
-        self.memory.load_rom(rom_data);
+        self.memory.load_rom_offset(rom_data, 0x100);
     }
 
     pub fn load_boot(&mut self, boot_data: Vec<u8>) {
@@ -106,7 +106,7 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
-        // self.dbg.add_breakpoint(Breakpoint::Addr(0x50));
+        // self.dbg.add_breakpoint(Breakpoint::Addr(0x0c));
         // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
 
         loop {
@@ -166,7 +166,7 @@ impl GameBoy {
                         _ => {}
                     }
                 }
-                graphics.render();
+                graphics.render(&mut self.memory);
             }
 
             // run audio

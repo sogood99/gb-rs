@@ -54,3 +54,15 @@ impl WordOP for u16 {
         self & mask
     }
 }
+
+pub fn byte2stringbit(byte: Byte) -> String {
+    format!("{:#08b}", byte)
+}
+
+pub fn byte2string(byte: Byte) -> String {
+    format!("{:#04X?}", byte)
+}
+
+pub fn address2string(address: Address) -> String {
+    format!("{:#04X?}", address)
+}

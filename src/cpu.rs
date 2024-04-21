@@ -1872,6 +1872,7 @@ impl CPU {
                 clock.tick(1, memory);
             }
             Instruction::HALT => {
+                // halt bug
                 self.halt = true;
                 self.pc += 1;
                 clock.tick(1, memory);
@@ -1905,25 +1906,25 @@ impl CPU {
         if flag_bytes != 0 {
             self.ime_disable();
             self.push_pc_stack(memory);
-            if Self::get_memory_flag(flag_bytes, Self::VBLANK_FLAG) {
+            if Memory::get_flag(flag_bytes, Self::VBLANK_FLAG) {
                 info!("VBLANK Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::VBLANK_FLAG);
+                Memory::reset_flag(&mut flag_bytes, Self::VBLANK_FLAG);
                 self.pc = 0x40;
-            } else if Self::get_memory_flag(flag_bytes, Self::LCD_FLAG) {
+            } else if Memory::get_flag(flag_bytes, Self::LCD_FLAG) {
                 info!("LCD Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::LCD_FLAG);
+                Memory::reset_flag(&mut flag_bytes, Self::LCD_FLAG);
                 self.pc = 0x48;
-            } else if Self::get_memory_flag(flag_bytes, Self::TIMER_FLAG) {
+            } else if Memory::get_flag(flag_bytes, Self::TIMER_FLAG) {
                 info!("TIMER Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::TIMER_FLAG);
+                Memory::reset_flag(&mut flag_bytes, Self::TIMER_FLAG);
                 self.pc = 0x50;
-            } else if Self::get_memory_flag(flag_bytes, Self::SERIAL_FLAG) {
+            } else if Memory::get_flag(flag_bytes, Self::SERIAL_FLAG) {
                 info!("SERIAL Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::SERIAL_FLAG);
+                Memory::reset_flag(&mut flag_bytes, Self::SERIAL_FLAG);
                 self.pc = 0x58;
-            } else if Self::get_memory_flag(flag_bytes, Self::JOYPAD_FLAG) {
+            } else if Memory::get_flag(flag_bytes, Self::JOYPAD_FLAG) {
                 info!("JOYPAD Interrupt");
-                Self::reset_memory_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
+                Memory::reset_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
                 self.pc = 0x60;
             }
         }
@@ -1955,25 +1956,6 @@ impl CPU {
 
     fn reset_all_flags(&mut self) {
         self.f = 0;
-    }
-
-    pub fn get_memory_flag(flag_byte: Byte, flag: Byte) -> bool {
-        assert_eq!(flag.count_ones(), 1);
-        (flag_byte & flag) > 0
-    }
-
-    pub fn set_memory_flag(flag_byte: &mut Byte, flag: Byte) {
-        assert_eq!(flag.count_ones(), 1);
-        *flag_byte = *flag_byte | flag;
-    }
-
-    pub fn reset_memory_flag(flag_byte: &mut Byte, flag: Byte) {
-        assert_eq!(flag.count_ones(), 1);
-        *flag_byte = *flag_byte & !flag;
-    }
-
-    pub fn reset_all_memory_flags(flag_byte: &mut Byte) {
-        *flag_byte = 0;
     }
 
     fn zero_flag(&mut self, result: Byte) {
