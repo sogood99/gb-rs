@@ -6,7 +6,7 @@ use crate::{
     utils::{bytes2word, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register {
     A,
     B,
@@ -18,7 +18,7 @@ pub enum Register {
     HL,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register16 {
     BC,
     DE,
@@ -65,7 +65,7 @@ impl Register16 {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Condition {
     NonZero,
     Zero,
@@ -85,7 +85,7 @@ impl Condition {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 #[allow(non_camel_case_types)]
 pub enum Instruction {
     /// Load register (register)

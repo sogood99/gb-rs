@@ -1,3 +1,4 @@
 /target
 debug.txt
 perf.data*
+flamegraph.svg

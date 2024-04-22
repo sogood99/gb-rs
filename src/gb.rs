@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use log::info;
 use sdl2::{
     event::{Event, EventType},
@@ -24,10 +26,10 @@ pub struct GameBoy {
 struct Debugger {
     pause: bool,
     step: bool,
-    breakpoints: Vec<Breakpoint>,
+    breakpoints: HashSet<Breakpoint>,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 enum Breakpoint {
     Inst(Instruction),
     Addr(Address),
@@ -38,7 +40,7 @@ impl Debugger {
         Self {
             pause: false,
             step: false,
-            breakpoints: Vec::new(),
+            breakpoints: HashSet::new(),
         }
     }
 
@@ -52,7 +54,7 @@ impl Debugger {
     }
 
     fn add_breakpoint(&mut self, breakpoint: Breakpoint) {
-        self.breakpoints.push(breakpoint);
+        self.breakpoints.insert(breakpoint);
     }
 
     fn check_breakpoints(&self, cpu: &CPU, memory: &Memory) -> bool {
@@ -182,9 +184,9 @@ impl GameBoy {
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
                 if self.clock.get_timestamp() - last_timestamp > 17476 {
                     last_timestamp = self.clock.get_timestamp();
-                    // println!("{}", last_time.elapsed().as_millis());
+                    println!("{}", last_time.elapsed().as_millis());
                     while last_time.elapsed().as_millis() < 16 {
-                        // println!("DELAY");
+                        println!("DELAY");
                         graphics.timer.delay(1);
                     }
                     last_time = std::time::Instant::now();
