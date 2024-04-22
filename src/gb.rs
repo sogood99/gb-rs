@@ -1,6 +1,4 @@
-use std::{io, time::Duration};
-
-use log::{debug, info};
+use log::info;
 use sdl2::{
     event::{Event, EventType},
     keyboard::Keycode,
@@ -184,9 +182,9 @@ impl GameBoy {
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
                 if self.clock.get_timestamp() - last_timestamp > 17476 {
                     last_timestamp = self.clock.get_timestamp();
-                    println!("{}", last_time.elapsed().as_millis());
+                    // println!("{}", last_time.elapsed().as_millis());
                     while last_time.elapsed().as_millis() < 16 {
-                        println!("DELAY");
+                        // println!("DELAY");
                         graphics.timer.delay(1);
                     }
                     last_time = std::time::Instant::now();

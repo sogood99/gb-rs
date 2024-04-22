@@ -1,6 +1,6 @@
-use log::{debug, info};
+use log::info;
 
-use crate::utils::{bytes2word, Address, Byte, ByteOP, Word};
+use crate::utils::{bytes2word, Address, Byte, Word};
 
 const MEMORY_SIZE: usize = 0x10000;
 

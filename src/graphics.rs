@@ -1,19 +1,17 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
-use log::info;
 use sdl2::{
     pixels::Color,
-    rect::{Point, Rect},
-    render::{Canvas, Texture, TextureCreator},
-    surface::Surface,
+    rect::Point,
+    render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
     EventPump, Sdl, TimerSubsystem,
 };
 use std::fmt;
 
 use crate::{
-    memory::{self, Memory},
-    utils::{address2string, Address, Byte, Word},
+    memory::Memory,
+    utils::{Address, Byte, Word},
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -303,6 +301,7 @@ pub struct Graphics {
     // gb related
     line_y: usize,
     line_drawn: bool,
+    rendered: bool,
     last_timestamp: u128,
     bg_fifo: BgFIFO,
 }
@@ -331,6 +330,7 @@ impl Graphics {
         let event_pump = context.event_pump().unwrap();
 
         let texture_creator = canvas.texture_creator();
+
         let timer = context.timer().unwrap();
 
         Self {
@@ -341,6 +341,7 @@ impl Graphics {
             timer,
             line_y: 0,
             line_drawn: false,
+            rendered: false,
             last_timestamp: 0,
             bg_fifo: BgFIFO::new(),
         }
@@ -364,7 +365,10 @@ impl Graphics {
 
         if self.line_y >= 144 {
             // render to screen
-            self.canvas.present();
+            if !self.rendered {
+                self.rendered = true;
+                self.canvas.present();
+            }
         } else if !self.line_drawn && clock_diff > 20 && clock_diff <= 92 {
             // draw line to screen
 
@@ -390,6 +394,7 @@ impl Graphics {
             // next cycle
             self.line_y = 0;
             self.line_drawn = false;
+            self.rendered = false;
             self.bg_fifo = BgFIFO::new();
             memory.write_byte(LY_ADDRESS, self.line_y as Byte);
         }
