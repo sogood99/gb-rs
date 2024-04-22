@@ -129,30 +129,34 @@ impl GameBoy {
         let mut last_timestamp = 0;
         let mut last_time = std::time::Instant::now();
 
+        let mut last_poll_time = std::time::Instant::now();
         loop {
+            // poll every 0.1s
             if let Some(ref mut graphics) = self.graphics {
-                match graphics.event_pump.poll_event() {
-                    None => (),
-                    Some(ev) => match ev {
-                        Event::Quit { .. }
-                        | Event::KeyDown {
-                            keycode: Some(Keycode::Escape),
-                            ..
+                if last_poll_time.elapsed().as_millis() > 100 {
+                    for event in graphics.event_pump.poll_iter() {
+                        match event {
+                            Event::Quit { .. }
+                            | Event::KeyDown {
+                                keycode: Some(Keycode::Escape),
+                                ..
+                            }
+                            | Event::KeyDown {
+                                keycode: Some(Keycode::Q),
+                                ..
+                            } => return,
+                            Event::KeyDown {
+                                keycode: Some(Keycode::P),
+                                ..
+                            } => self.dbg.toggle_pause(),
+                            Event::KeyDown {
+                                keycode: Some(Keycode::RightBracket),
+                                ..
+                            } => self.dbg.toggle_step(),
+                            _ => {}
                         }
-                        | Event::KeyDown {
-                            keycode: Some(Keycode::Q),
-                            ..
-                        } => return,
-                        Event::KeyDown {
-                            keycode: Some(Keycode::P),
-                            ..
-                        } => self.dbg.toggle_pause(),
-                        Event::KeyDown {
-                            keycode: Some(Keycode::RightBracket),
-                            ..
-                        } => self.dbg.toggle_step(),
-                        _ => {}
-                    },
+                    }
+                    last_poll_time = std::time::Instant::now();
                 }
             }
             if self.dbg.check_pause(&self.cpu, &self.memory) {
@@ -184,9 +188,7 @@ impl GameBoy {
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
                 if self.clock.get_timestamp() - last_timestamp > 17476 {
                     last_timestamp = self.clock.get_timestamp();
-                    println!("{}", last_time.elapsed().as_millis());
                     while last_time.elapsed().as_millis() < 16 {
-                        println!("DELAY");
                         graphics.timer.delay(1);
                     }
                     last_time = std::time::Instant::now();
