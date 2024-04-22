@@ -25,6 +25,8 @@ const SCY_ADDRESS: Address = 0xFF42;
 const SCX_ADDRESS: Address = 0xFF43;
 const WY_ADDRESS: Address = 0xFF4A;
 const WX_ADDRESS: Address = 0xFF4B;
+const LY_ADDRESS: Address = 0xFF44;
+const LYC_ADDRESS: Address = 0xFF45;
 
 const LCDC_ADDRESS: Address = 0xFF40;
 const LCDC_ENABLE_FLAG: Byte = 0b1000_0000;
@@ -139,7 +141,7 @@ impl Tile {
     }
 
     pub fn fetch_tile(memory: &Memory, pixel_source: PixelSource, address: Address) -> Self {
-        println!("{}", address2string(address));
+        // println!("{}", address2string(address));
 
         let default_tile = Pixel {
             color_ref: 0,
@@ -241,8 +243,7 @@ impl BgFIFO {
                 } else {
                     0x9800
                 };
-                // let (dx, dy) = Self::get_scroll(memory);
-                let (dx, dy) = (0, 0);
+                let (dx, dy) = Self::get_scroll(memory);
                 (
                     (self.screen_pos.x + self.fifo.len() + dx) % 255,
                     (self.screen_pos.y + dy) % 255,
@@ -273,18 +274,18 @@ impl BgFIFO {
             let tile_num = memory.read_byte_unsafe(tile_num_address);
             let start_address = bcw_tile_address + BYTES_PER_TILE * (tile_num as Address);
 
-            println!("");
-            println!("{}", address2string(tile_num_address));
+            // println!("");
+            // println!("{}", address2string(tile_num_address));
             let tile = Tile::fetch_tile(memory, PixelSource::Background, start_address);
             // if !tile.all_zero() {
-            println!("{:?}, {:?}, {:?}", fp, self.in_window, tile);
+            // println!("{:?}, {:?}, {:?}", fp, self.in_window, tile);
             // }
             let (tx, ty) = (fp.x % 8, fp.y % 8);
             let tile_line = tile.get_range(tx.., ty);
-            println!("{:?}", fp);
-            println!("{:?}", tile_pos);
-            println!("{:?}", Self::get_scroll(memory));
-            println!("{:?}", tile_line);
+            // println!("{:?}", fp);
+            // println!("{:?}", tile_pos);
+            // println!("{:?}", Self::get_scroll(memory));
+            // println!("{:?}", tile_line);
             self.fifo.extend(tile_line);
         }
     }
@@ -355,6 +356,7 @@ impl Graphics {
             self.last_timestamp = self.last_timestamp + 114;
             self.line_y += 1;
             self.line_drawn = false;
+            memory.write_byte(LY_ADDRESS, self.line_y as Byte);
         }
 
         if self.line_y >= 144 {
@@ -386,6 +388,7 @@ impl Graphics {
             self.line_y = 0;
             self.line_drawn = false;
             self.bg_fifo = BgFIFO::new();
+            memory.write_byte(LY_ADDRESS, self.line_y as Byte);
         }
     }
 

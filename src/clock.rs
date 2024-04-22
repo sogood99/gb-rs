@@ -36,7 +36,6 @@ impl Clock {
 
         // total counter
         self.timestamp += mcycles as u128;
-        // std::thread::sleep(std::time::Duration::from_millis(100));
 
         // handle tima
         let tac = memory.read_byte_unsafe(Self::TAC_ADDRESS);
