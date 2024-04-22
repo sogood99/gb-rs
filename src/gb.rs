@@ -1,7 +1,10 @@
 use std::{io, time::Duration};
 
 use log::{debug, info};
-use sdl2::{event::Event, keyboard::Keycode};
+use sdl2::{
+    event::{Event, EventType},
+    keyboard::Keycode,
+};
 
 use crate::{
     clock::Clock,
@@ -109,11 +112,25 @@ impl GameBoy {
         // self.dbg.add_breakpoint(Breakpoint::Addr(0x0c));
         // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
 
+        // disable all events, enable only ones needed
+        if let Some(ref mut graphics) = self.graphics {
+            for i in 0..=65_535 {
+                match EventType::try_from(i) {
+                    Err(_) => (),
+                    Ok(evt) => {
+                        graphics.event_pump.disable_event(evt);
+                    }
+                }
+            }
+            graphics.event_pump.enable_event(EventType::Quit);
+            graphics.event_pump.enable_event(EventType::KeyDown);
+        }
+
         loop {
-            // non gb related keydowns
             if let Some(ref mut graphics) = self.graphics {
-                for event in graphics.event_pump.poll_iter() {
-                    match event {
+                match graphics.event_pump.poll_event() {
+                    None => (),
+                    Some(ev) => match ev {
                         Event::Quit { .. }
                         | Event::KeyDown {
                             keycode: Some(Keycode::Escape),
@@ -132,10 +149,9 @@ impl GameBoy {
                             ..
                         } => self.dbg.toggle_step(),
                         _ => {}
-                    }
+                    },
                 }
             }
-
             if self.dbg.check_pause(&self.cpu, &self.memory) {
                 continue;
             }
@@ -160,14 +176,11 @@ impl GameBoy {
 
             // render graphics
             if let Some(ref mut graphics) = self.graphics {
-                // polling user inputs
-                for event in graphics.event_pump.poll_iter() {
-                    match event {
-                        _ => {}
-                    }
-                }
+                // non gb related keydowns
+
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
             }
+            // std::thread::sleep(std::time::Duration::from_nanos(10));
 
             // run audio
         }
