@@ -1,7 +1,7 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
 use sdl2::{
-    pixels::Color,
+    pixels::{Color, PixelFormatEnum},
     rect::Point,
     render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
@@ -15,8 +15,9 @@ use crate::{
 };
 
 const BYTES_PER_TILE: Word = 16;
-const SCREEN_WIDTH: u32 = 160;
-const SCREEN_HEIGHT: u32 = 144;
+const SCREEN_WIDTH: usize = 160;
+const SCREEN_HEIGHT: usize = 144;
+const PIXEL_COUNT: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
 
 const OBJ_TILE_ADDRESS: Address = 0x8000;
 const SCY_ADDRESS: Address = 0xFF42;
@@ -272,18 +273,9 @@ impl BgFIFO {
             let tile_num = memory.read_byte_unsafe(tile_num_address);
             let start_address = bcw_tile_address + BYTES_PER_TILE * (tile_num as Address);
 
-            // println!("");
-            // println!("{}", address2string(tile_num_address));
             let tile = Tile::fetch_tile(memory, PixelSource::Background, start_address);
-            // if !tile.all_zero() {
-            // println!("{:?}, {:?}, {:?}", fp, self.in_window, tile);
-            // }
             let (tx, ty) = (fp.x % 8, fp.y % 8);
             let tile_line = tile.get_range(tx.., ty);
-            // println!("{:?}", fp);
-            // println!("{:?}", tile_pos);
-            // println!("{:?}", Self::get_scroll(memory));
-            // println!("{:?}", tile_line);
             self.fifo.extend(tile_line);
         }
     }
@@ -300,6 +292,7 @@ pub struct Graphics {
 
     // gb related
     line_y: usize,
+    screen_buffer: [Byte; SCREEN_WIDTH * SCREEN_HEIGHT * 3],
     line_drawn: bool,
     rendered: bool,
     last_timestamp: u128,
@@ -317,7 +310,7 @@ impl Graphics {
         // Create window and renderer
         let video_subsystem = context.video().unwrap();
         let window = video_subsystem
-            .window("GB-rs", SCREEN_WIDTH, SCREEN_HEIGHT)
+            .window("GB-rs", SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
             .position_centered()
             .build()
             .unwrap();
@@ -339,6 +332,7 @@ impl Graphics {
             event_pump,
             texture_creator,
             timer,
+            screen_buffer: [0; PIXEL_COUNT * 3],
             line_y: 0,
             line_drawn: false,
             rendered: false,
@@ -366,8 +360,20 @@ impl Graphics {
         if self.line_y >= 144 {
             // render to screen
             if !self.rendered {
-                self.rendered = true;
+                let mut texture = self
+                    .texture_creator
+                    .create_texture_target(
+                        PixelFormatEnum::RGB24,
+                        SCREEN_WIDTH as u32,
+                        SCREEN_HEIGHT as u32,
+                    )
+                    .unwrap();
+                texture
+                    .update(None, &self.screen_buffer, SCREEN_WIDTH * 3)
+                    .unwrap();
+                self.canvas.copy(&texture, None, None).unwrap();
                 self.canvas.present();
+                self.rendered = true;
             }
         } else if !self.line_drawn && clock_diff > 20 && clock_diff <= 92 {
             // draw line to screen
@@ -382,10 +388,11 @@ impl Graphics {
                     3 => WHITE,
                     _ => panic!("{:?} unknown pixel value", val),
                 };
-                self.canvas.set_draw_color(color);
-                self.canvas
-                    .draw_point(Point::new(x as i32, self.line_y as i32))
-                    .unwrap();
+
+                let offset = self.line_y * SCREEN_WIDTH * 3 + x * 3;
+                self.screen_buffer[offset] = color.r;
+                self.screen_buffer[offset + 1] = color.g;
+                self.screen_buffer[offset + 2] = color.b;
             }
             self.line_drawn = true;
         }
@@ -398,9 +405,5 @@ impl Graphics {
             self.bg_fifo = BgFIFO::new();
             memory.write_byte(LY_ADDRESS, self.line_y as Byte);
         }
-    }
-
-    fn color2vec(color: Color) -> Vec<u8> {
-        vec![color.r, color.g, color.b]
     }
 }
