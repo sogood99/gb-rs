@@ -1,5 +1,3 @@
-use log::info;
-
 use crate::{
     cpu::CPU,
     memory::Memory,
@@ -9,6 +7,7 @@ use crate::{
 pub struct Clock {
     div_counter: Byte,
     timer_counter: u32,
+    timestamp: u128,
 }
 
 impl Clock {
@@ -23,6 +22,7 @@ impl Clock {
         Clock {
             div_counter: 0,
             timer_counter: 0,
+            timestamp: 0,
         }
     }
 
@@ -33,6 +33,10 @@ impl Clock {
         if overflow {
             memory.wrapping_add(Self::DIV_ADDRESS, 1);
         }
+
+        // total counter
+        self.timestamp += mcycles as u128;
+        // std::thread::sleep(std::time::Duration::from_millis(100));
 
         // handle tima
         let tac = memory.read_byte_unsafe(Self::TAC_ADDRESS);
@@ -63,5 +67,9 @@ impl Clock {
                 self.timer_counter -= 4194304 / frequency;
             }
         }
+    }
+
+    pub fn get_timestamp(&self) -> u128 {
+        self.timestamp
     }
 }

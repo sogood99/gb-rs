@@ -166,7 +166,7 @@ impl GameBoy {
                         _ => {}
                     }
                 }
-                graphics.render(&mut self.memory);
+                graphics.render(&mut self.memory, self.clock.get_timestamp());
             }
 
             // run audio
