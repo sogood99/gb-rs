@@ -126,6 +126,9 @@ impl GameBoy {
             graphics.event_pump.enable_event(EventType::KeyDown);
         }
 
+        let mut last_timestamp = 0;
+        let mut last_time = std::time::Instant::now();
+
         loop {
             if let Some(ref mut graphics) = self.graphics {
                 match graphics.event_pump.poll_event() {
@@ -179,8 +182,16 @@ impl GameBoy {
                 // non gb related keydowns
 
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
+                if self.clock.get_timestamp() - last_timestamp > 17476 {
+                    last_timestamp = self.clock.get_timestamp();
+                    println!("{}", last_time.elapsed().as_millis());
+                    while last_time.elapsed().as_millis() < 16 {
+                        println!("DELAY");
+                        graphics.timer.delay(1);
+                    }
+                    last_time = std::time::Instant::now();
+                }
             }
-            // std::thread::sleep(std::time::Duration::from_nanos(10));
 
             // run audio
         }

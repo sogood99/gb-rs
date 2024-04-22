@@ -7,7 +7,7 @@ use sdl2::{
     render::{Canvas, Texture, TextureCreator},
     surface::Surface,
     video::{Window, WindowContext},
-    EventPump, Sdl,
+    EventPump, Sdl, TimerSubsystem,
 };
 use std::fmt;
 
@@ -298,6 +298,7 @@ pub struct Graphics {
     pub canvas: Canvas<Window>,
     pub event_pump: EventPump,
     pub texture_creator: TextureCreator<WindowContext>,
+    pub timer: TimerSubsystem,
 
     // gb related
     line_y: usize,
@@ -312,7 +313,7 @@ impl Graphics {
         let context = sdl2::init().unwrap();
 
         // Set hint for vsync
-        sdl2::hint::set("SDL_HINT_RENDER_VSYNC", "1");
+        // sdl2::hint::set("SDL_HINT_RENDER_VSYNC", "1");
 
         // Create window and renderer
         let video_subsystem = context.video().unwrap();
@@ -330,12 +331,14 @@ impl Graphics {
         let event_pump = context.event_pump().unwrap();
 
         let texture_creator = canvas.texture_creator();
+        let timer = context.timer().unwrap();
 
         Self {
             context,
             canvas,
             event_pump,
             texture_creator,
+            timer,
             line_y: 0,
             line_drawn: false,
             last_timestamp: 0,
