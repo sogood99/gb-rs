@@ -1,6 +1,5 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
-use log::info;
 use sdl2::{
     pixels::{Color, PixelFormatEnum},
     render::{Canvas, TextureCreator},
@@ -12,9 +11,7 @@ use std::fmt;
 use crate::{
     cpu::CPU,
     memory::Memory,
-    utils::{
-        address2string, byte2stringbit, get_flag, set_flag, set_flag_ref, Address, Byte, Word,
-    },
+    utils::{get_flag, set_flag, set_flag_ref, Address, Byte, Word},
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -263,16 +260,16 @@ impl BgFIFO {
             let fp = PixelPos { x: fx, y: fy };
             let tile_pos = fp.to_tile();
             let tile_idx = tile_pos.i + tile_pos.j * 32;
-            let bcw_tile_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
-                0x8000
-            } else {
-                0x8800
-            };
             let tile_num_address = map_address + (tile_idx as Address);
             let tile_num = memory.read_byte(tile_num_address);
-            let start_address = bcw_tile_address + BYTES_PER_TILE * (tile_num as Address);
+            let tile_start_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
+                0x8000 + BYTES_PER_TILE * (tile_num as Address)
+            } else {
+                let res = 0x9000 + (BYTES_PER_TILE as i32) * ((tile_num as i8) as i32);
+                res as Address
+            };
 
-            let tile = Tile::fetch_tile(memory, PixelSource::Background, start_address);
+            let tile = Tile::fetch_tile(memory, PixelSource::Background, tile_start_address);
             let (tx, ty) = (fp.x % 8, fp.y % 8);
             let tile_line = tile.get_range(tx.., ty);
             self.fifo.extend(tile_line);

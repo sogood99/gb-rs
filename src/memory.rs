@@ -11,9 +11,7 @@ const MBC_TYPE_ADDRESS: Address = 0x0147;
 const ROM_SIZE_ADDRESS: Address = 0x0148;
 const RAM_SIZE_ADDRESS: Address = 0x0149;
 
-const ROM_ONLY_SIZE: usize = 0x8000;
-
-const UNLOAD_BOOT_ADDRESS: usize = 0xFF50;
+const UNLOAD_BOOT_ADDRESS: Address = 0xFF50;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CartridgeType {
@@ -119,11 +117,13 @@ impl Memory {
 
     /// Write byte to address according to MMU
     pub fn write_byte(&mut self, address: Address, byte: Byte) {
-        let address = address as usize;
-
-        if address == UNLOAD_BOOT_ADDRESS {
-            self.unload_boot();
+        match address {
+            UNLOAD_BOOT_ADDRESS => self.unload_boot(),
+            DMA_ADDRESS => unimplemented!(),
+            _ => (),
         }
+
+        let address = address as usize;
 
         let ctype = self.get_cartridge_type();
         match ctype {
