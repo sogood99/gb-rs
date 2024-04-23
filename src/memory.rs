@@ -4,6 +4,14 @@ use crate::utils::{bytes2word, Address, Byte, Word};
 
 const MEMORY_SIZE: usize = 0x10000;
 
+const DMA_ADDRESS: Address = 0xFF46;
+const MBC_TYPE_ADDRESS: Address = 0x0147;
+
+pub enum RomType {
+    RomOnly,
+    MBC1,
+}
+
 pub struct Memory {
     memory: [Byte; MEMORY_SIZE],
 }
@@ -30,70 +38,36 @@ impl Memory {
         self.memory[offset..rom_data.len()].copy_from_slice(&rom_data[offset..]);
     }
 
-    pub fn read_byte(&self, address: Address) -> Option<Byte> {
+    pub fn read_byte(&self, address: Address) -> Byte {
         let address = address as usize;
-        if address < self.memory.len() {
-            Some(self.memory[address])
-        } else {
-            None
-        }
+        self.memory[address]
     }
 
-    pub fn read_byte_unsafe(&self, address: Address) -> Byte {
-        self.memory[address as usize]
-    }
-
-    pub fn read_word(&self, address: Address) -> Option<Word> {
-        let address = address as usize;
-        if address + 1 < self.memory.len() {
-            Some(bytes2word(self.memory[address], self.memory[address + 1]))
-        } else {
-            None
-        }
-    }
-
-    pub fn read_word_unsafe(&self, address: Address) -> Word {
+    pub fn read_word(&self, address: Address) -> Word {
         let address = address as usize;
         bytes2word(self.memory[address], self.memory[address + 1])
     }
 
-    pub fn write_byte(&mut self, address: Address, byte: Byte) -> Option<()> {
+    /// Write byte to address according to MMU
+    pub fn write_byte(&mut self, address: Address, byte: Byte) {
         let address = address as usize;
-        if address < self.memory.len() {
-            self.memory[address] = byte;
-            Some(())
-        } else {
-            None
+        self.memory[address] = byte;
+    }
+
+    pub fn get_rom_type(&self) -> RomType {
+        let rom_type = self.read_byte(MBC_TYPE_ADDRESS);
+        match rom_type {
+            0x00 => RomType::RomOnly,
+            0x01 => RomType::MBC1,
+            _ => unimplemented!(),
         }
     }
 
-    pub fn write_byte_unsafe(&mut self, address: Address, byte: Byte) {
-        self.memory[address as usize] = byte;
-    }
-
+    /// Wrapping add value to address
     pub fn wrapping_add(&mut self, address: Address, value: Byte) {
         assert!((address as usize) < MEMORY_SIZE);
-        let mut mem_val = self.read_byte_unsafe(address);
+        let mut mem_val = self.read_byte(address);
         mem_val = mem_val.wrapping_add(value);
-        self.write_byte_unsafe(address, mem_val);
-    }
-
-    pub fn get_flag(flag_byte: Byte, flag: Byte) -> bool {
-        assert_eq!(flag.count_ones(), 1);
-        (flag_byte & flag) > 0
-    }
-
-    pub fn set_flag(flag_byte: &mut Byte, flag: Byte) {
-        assert_eq!(flag.count_ones(), 1);
-        *flag_byte = *flag_byte | flag;
-    }
-
-    pub fn reset_flag(flag_byte: &mut Byte, flag: Byte) {
-        assert_eq!(flag.count_ones(), 1);
-        *flag_byte = *flag_byte & !flag;
-    }
-
-    pub fn reset_all_flags(flag_byte: &mut Byte) {
-        *flag_byte = 0;
+        self.write_byte(address, mem_val);
     }
 }

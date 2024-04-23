@@ -1,6 +1,5 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
-use log::info;
 use sdl2::{
     pixels::{Color, PixelFormatEnum},
     render::{Canvas, TextureCreator},
@@ -10,9 +9,9 @@ use sdl2::{
 use std::fmt;
 
 use crate::{
-    clock,
+    cpu::CPU,
     memory::Memory,
-    utils::{Address, Byte, Word},
+    utils::{get_flag, set_flag, set_flag_ref, Address, Byte, Word},
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -148,8 +147,8 @@ impl Tile {
             let lsb_address = address + 2 * (x as Address);
             let msb_address = address + 2 * (x as Address) + 1;
 
-            let lsb = memory.read_byte_unsafe(lsb_address);
-            let msb = memory.read_byte_unsafe(msb_address);
+            let lsb = memory.read_byte(lsb_address);
+            let msb = memory.read_byte(msb_address);
 
             for y in 0..8 {
                 let b = 7 - y;
@@ -188,19 +187,19 @@ impl BgFIFO {
         }
     }
     fn get_scroll(memory: &Memory) -> (usize, usize) {
-        let scy = memory.read_byte_unsafe(SCY_ADDRESS) as usize;
-        let scx = memory.read_byte_unsafe(SCX_ADDRESS) as usize;
+        let scy = memory.read_byte(SCY_ADDRESS) as usize;
+        let scx = memory.read_byte(SCX_ADDRESS) as usize;
         (scx, scy)
     }
     fn get_viewport(memory: &Memory) -> (usize, usize) {
-        let wy = memory.read_byte_unsafe(WY_ADDRESS) as usize;
-        let wx = memory.read_byte_unsafe(WX_ADDRESS) as usize;
+        let wy = memory.read_byte(WY_ADDRESS) as usize;
+        let wx = memory.read_byte(WX_ADDRESS) as usize;
         (wx, wy)
     }
     fn in_window(p: PixelPos, memory: &Memory) -> bool {
         let (wx, wy) = Self::get_viewport(memory);
-        let lcdc = memory.read_byte_unsafe(LCDC_ADDRESS);
-        let window_enable = Memory::get_flag(lcdc, WINDOW_ENABLE_FLAG);
+        let lcdc = memory.read_byte(LCDC_ADDRESS);
+        let window_enable = get_flag(lcdc, WINDOW_ENABLE_FLAG);
         window_enable && p.x + 7 >= wx && p.y >= wy
     }
 
@@ -229,11 +228,11 @@ impl BgFIFO {
         p
     }
     fn fetch(&mut self, memory: &Memory) {
-        let lcdc = memory.read_byte_unsafe(LCDC_ADDRESS);
+        let lcdc = memory.read_byte(LCDC_ADDRESS);
 
         while self.fifo.len() < 8 {
             let (fx, fy, map_address) = if !self.in_window {
-                let bcg_map_address = if Memory::get_flag(lcdc, BG_TILE_MAP_FLAG) {
+                let bcg_map_address = if get_flag(lcdc, BG_TILE_MAP_FLAG) {
                     0x9C00
                 } else {
                     0x9800
@@ -245,7 +244,7 @@ impl BgFIFO {
                     bcg_map_address,
                 )
             } else {
-                let window_map_address = if Memory::get_flag(lcdc, WINDOW_TILE_MAP_FLAG) {
+                let window_map_address = if get_flag(lcdc, WINDOW_TILE_MAP_FLAG) {
                     0x9C00
                 } else {
                     0x9800
@@ -260,13 +259,13 @@ impl BgFIFO {
             let fp = PixelPos { x: fx, y: fy };
             let tile_pos = fp.to_tile();
             let tile_idx = tile_pos.i + tile_pos.j * 32;
-            let bcw_tile_address = if Memory::get_flag(lcdc, BGW_TILES_DATA_FLAG) {
+            let bcw_tile_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
                 0x8000
             } else {
                 0x8800
             };
             let tile_num_address = map_address + (tile_idx as Address);
-            let tile_num = memory.read_byte_unsafe(tile_num_address);
+            let tile_num = memory.read_byte(tile_num_address);
             let start_address = bcw_tile_address + BYTES_PER_TILE * (tile_num as Address);
 
             let tile = Tile::fetch_tile(memory, PixelSource::Background, start_address);
@@ -290,6 +289,17 @@ pub enum PPUMode {
     Mode2(usize),
     /// Drawing Pixels
     Mode3(usize),
+}
+
+impl PPUMode {
+    fn to_num(&self) -> Byte {
+        match self {
+            Self::Mode0(_) => 0,
+            Self::Mode1(_) => 1,
+            Self::Mode2(_) => 2,
+            Self::Mode3(_) => 3,
+        }
+    }
 }
 
 pub struct Graphics {
@@ -376,7 +386,7 @@ impl Graphics {
             match (self.last_ppu_mode, current_ppu_mode) {
                 (PPUMode::Mode1(l1), PPUMode::Mode2(l2)) if l1 == 153 && l2 == 0 => {
                     // new frame
-                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                    self.set_lyc(memory);
                 }
                 (PPUMode::Mode2(l1), PPUMode::Mode3(l2)) if l1 == l2 => {
                     // draw line to screen_buffer
@@ -402,11 +412,11 @@ impl Graphics {
                 }
                 (PPUMode::Mode0(l1), PPUMode::Mode2(l2)) if l1 + 1 == l2 => {
                     // newline
-                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                    self.set_lyc(memory);
                 }
                 (PPUMode::Mode0(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
                     // render to screen if vblank
-                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                    self.set_lyc(memory);
                     let mut texture = self
                         .texture_creator
                         .create_texture_target(
@@ -423,7 +433,7 @@ impl Graphics {
                 }
                 (PPUMode::Mode1(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
                     // newline in vblank mode
-                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                    self.set_lyc(memory);
                 }
                 _ => panic!(
                     "PPU Transition Error {:?} {:?}, Clock Diff {:?} at line {:?}",
@@ -431,6 +441,7 @@ impl Graphics {
                 ),
             }
             self.last_ppu_mode = current_ppu_mode;
+            self.set_ppu(current_ppu_mode, memory);
         }
     }
 
@@ -444,6 +455,47 @@ impl Graphics {
             PPUMode::Mode3(self.line_y)
         } else {
             PPUMode::Mode0(self.line_y)
+        }
+    }
+
+    /// Set ppu stat flag and LCD interrupt flag
+    fn set_ppu(&self, ppu_mode: PPUMode, memory: &mut Memory) {
+        let stat_flag = memory.read_byte(LCD_STATUS_ADDRESS) & !0b11;
+        let new_stat_flag = stat_flag | ppu_mode.to_num();
+
+        // interrupt
+        let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
+        match ppu_mode {
+            PPUMode::Mode0(_) if get_flag(stat_flag, MODE0_INT_FLAG) => {
+                set_flag(&mut int_flag, CPU::LCD_FLAG);
+            }
+            PPUMode::Mode1(_) if get_flag(stat_flag, MODE1_INT_FLAG) => {
+                set_flag(&mut int_flag, CPU::LCD_FLAG);
+            }
+            PPUMode::Mode2(_) if get_flag(stat_flag, MODE2_INT_FLAG) => {
+                set_flag(&mut int_flag, CPU::LCD_FLAG);
+            }
+            _ => (),
+        }
+        memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+        memory.write_byte(LCD_STATUS_ADDRESS, new_stat_flag);
+    }
+
+    /// Set ly and lyc int/flags
+    fn set_lyc(&self, memory: &mut Memory) {
+        memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+        let lyc = memory.read_byte(LYC_ADDRESS) as usize;
+        if lyc == self.line_y {
+            // set the lyc == ly flag in stat
+            let stat_flag = memory.read_byte(LCD_STATUS_ADDRESS);
+            let new_stat_flag = set_flag_ref(stat_flag, LYC_EQ_LY_FLAG);
+            memory.write_byte(LCD_STATUS_ADDRESS, new_stat_flag);
+
+            if get_flag(stat_flag, LCY_INT_FLAG) {
+                let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
+                set_flag(&mut int_flag, CPU::LCD_FLAG);
+                memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+            }
         }
     }
 }

@@ -88,7 +88,7 @@ impl Debugger {
 impl GameBoy {
     pub fn new(graphics_enabled: bool) -> Self {
         GameBoy {
-            cpu: CPU::new(),
+            cpu: CPU::new_skip_boot(),
             memory: Memory::new(),
             graphics: if graphics_enabled {
                 Some(Graphics::new())
@@ -101,8 +101,8 @@ impl GameBoy {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
-        self.memory.load_rom_offset(rom_data, 0x100);
-        // self.memory.load_rom(rom_data);
+        // self.memory.load_rom_offset(rom_data, 0x100);
+        self.memory.load_rom(rom_data);
     }
 
     pub fn load_boot(&mut self, boot_data: Vec<u8>) {
@@ -176,8 +176,8 @@ impl GameBoy {
             self.cpu.ime_step();
 
             // serial output debug
-            if self.memory.read_byte_unsafe(0xff02) != 0 {
-                let c = self.memory.read_byte_unsafe(0xff01) as char;
+            if self.memory.read_byte(0xff02) != 0 {
+                let c = self.memory.read_byte(0xff01) as char;
                 print!("{}", c);
                 self.memory.write_byte(0xff02, 0);
             }

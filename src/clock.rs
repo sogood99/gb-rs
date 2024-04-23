@@ -1,6 +1,7 @@
 use crate::{
     cpu::CPU,
     memory::Memory,
+    utils::{get_flag, set_flag},
     utils::{Address, Byte},
 };
 
@@ -38,8 +39,8 @@ impl Clock {
         self.timestamp += mcycles as u128;
 
         // handle tima
-        let tac = memory.read_byte_unsafe(Self::TAC_ADDRESS);
-        if Memory::get_flag(tac, Self::TAC_ENABLE_FLAG) {
+        let tac = memory.read_byte(Self::TAC_ADDRESS);
+        if get_flag(tac, Self::TAC_ENABLE_FLAG) {
             self.timer_counter += 4 * (mcycles as u32);
 
             let frequency = match tac & Self::TAC_CLOCK_SELECT {
@@ -53,14 +54,14 @@ impl Clock {
             while self.timer_counter >= 4194304 / frequency {
                 memory.wrapping_add(Self::TIMA_ADDRESS, 1);
 
-                if memory.read_byte_unsafe(Self::TIMA_ADDRESS) == 0 {
+                if memory.read_byte(Self::TIMA_ADDRESS) == 0 {
                     // set timer interrupt and reset timer
-                    let mut interrupt_flags = memory.read_byte_unsafe(CPU::INTERRUPT_FLAG_ADDRESS);
-                    Memory::set_flag(&mut interrupt_flags, CPU::TIMER_FLAG);
-                    memory.write_byte_unsafe(CPU::INTERRUPT_FLAG_ADDRESS, interrupt_flags);
+                    let mut interrupt_flags = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
+                    set_flag(&mut interrupt_flags, CPU::TIMER_FLAG);
+                    memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, interrupt_flags);
 
-                    let tma = memory.read_byte_unsafe(Self::TMA_ADDRESS);
-                    memory.write_byte_unsafe(Self::TIMA_ADDRESS, tma);
+                    let tma = memory.read_byte(Self::TMA_ADDRESS);
+                    memory.write_byte(Self::TIMA_ADDRESS, tma);
                 }
 
                 self.timer_counter -= 4194304 / frequency;

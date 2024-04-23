@@ -1514,7 +1514,7 @@ mod tests {
 
         assert_eq!(cpu.h, 0x12);
         assert_eq!(cpu.l, 0x34);
-        assert_eq!(memory.read_byte(cpu.get_hl()).unwrap(), 0x20);
+        assert_eq!(memory.read_byte(cpu.get_hl()), 0x20);
         assert_eq!(cpu.a, 0x30);
     }
 

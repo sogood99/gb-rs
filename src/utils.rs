@@ -66,3 +66,27 @@ pub fn byte2string(byte: Byte) -> String {
 pub fn address2string(address: Address) -> String {
     format!("{:#04X?}", address)
 }
+
+pub fn get_flag(flag_byte: Byte, flag: Byte) -> bool {
+    assert_eq!(flag.count_ones(), 1);
+    (flag_byte & flag) > 0
+}
+
+pub fn set_flag(flag_byte: &mut Byte, flag: Byte) {
+    assert_eq!(flag.count_ones(), 1);
+    *flag_byte = *flag_byte | flag;
+}
+
+pub fn set_flag_ref(flag_byte: Byte, flag: Byte) -> Byte {
+    assert_eq!(flag.count_ones(), 1);
+    flag_byte | flag
+}
+
+pub fn reset_flag(flag_byte: &mut Byte, flag: Byte) {
+    assert_eq!(flag.count_ones(), 1);
+    *flag_byte = *flag_byte & !flag;
+}
+
+pub fn reset_all_flags(flag_byte: &mut Byte) {
+    *flag_byte = 0;
+}

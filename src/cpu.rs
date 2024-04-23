@@ -3,7 +3,7 @@ use log::{debug, info};
 use crate::{
     clock::Clock,
     memory::Memory,
-    utils::{bytes2word, Address, Byte, ByteOP, SignedByte, Word, WordOP},
+    utils::{bytes2word, get_flag, reset_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -391,7 +391,7 @@ impl SizedInstruction {
 
     /// Decode the opcode at address into a SizedInstruction
     pub fn decode(memory: &Memory, address: Address) -> Option<Self> {
-        let opcode = memory.read_byte(address)?;
+        let opcode = memory.read_byte(address);
         debug!("Address: {:#04X?}, Opcode: {:#04X?}", address, opcode);
         let (instruction, size) = if Self::NOP.matches(opcode) {
             (Instruction::NOP, 1)
@@ -406,14 +406,14 @@ impl SizedInstruction {
             (instruction, 1)
         } else if Self::LD2.matches(opcode) {
             let r = Register::get_r(opcode >> 3);
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             let instruction = match r {
                 Register::HL => Instruction::LD_HL_N(n),
                 reg => Instruction::LD_R_N(reg, n),
             };
             (instruction, 2)
         } else if Self::LD3.matches(opcode) {
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             let instruction = if opcode & 1 << 4 != 0 {
                 Instruction::LD_A_NN(nn)
             } else {
@@ -428,7 +428,7 @@ impl SizedInstruction {
             };
             (instruction, 1)
         } else if Self::LD5.matches(opcode) {
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             let instruction = if opcode & 1 << 4 != 0 {
                 Instruction::LDH_A_N(n)
             } else {
@@ -458,18 +458,18 @@ impl SizedInstruction {
             (instruction, 1)
         } else if Self::LD7.matches(opcode) {
             let rr = Register16::get_rr(opcode >> 4, true);
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             let instruction = Instruction::LD_RR_NN(rr, nn);
             (instruction, 3)
         } else if Self::LD8.matches(opcode) {
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             let instruction = Instruction::LD_NN_SP(nn);
             (instruction, 3)
         } else if Self::LD9.matches(opcode) {
             if opcode & 1 == 1 {
                 (Instruction::LD_SP_HL, 1)
             } else {
-                let e = memory.read_byte(address + 1)? as SignedByte;
+                let e = memory.read_byte(address + 1) as SignedByte;
                 (Instruction::LD_HL_SP(e), 2)
             }
         } else if Self::PUSH_POP.matches(opcode) {
@@ -508,7 +508,7 @@ impl SizedInstruction {
             };
             (instruction, 1)
         } else if Self::ARITH_OP_N.matches(opcode) {
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             let instruction = match opcode.get_high_nibble() {
                 0xc => Instruction::ADD_N(n),
                 0xd => Instruction::SUB_N(n),
@@ -518,7 +518,7 @@ impl SizedInstruction {
             };
             (instruction, 2)
         } else if Self::ARITH_OP_C_N.matches(opcode) {
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             let instruction = match opcode.get_high_nibble() {
                 0xc => Instruction::ADC_N(n),
                 0xd => Instruction::SBC_N(n),
@@ -569,7 +569,7 @@ impl SizedInstruction {
 
             (instruction, 1)
         } else if Self::CALL.matches(opcode) {
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             let instruction = if opcode & 1 != 0 {
                 // ret
                 Instruction::CALL(nn)
@@ -589,20 +589,20 @@ impl SizedInstruction {
             let n = (opcode >> 3) & 0b111;
             (Instruction::RST(n * 8), 1)
         } else if Self::JP.matches(opcode) {
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             (Instruction::JP_NN(nn), 3)
         } else if Self::JP_HL.matches(opcode) {
             (Instruction::JP_HL, 1)
         } else if Self::JP_CC.matches(opcode) {
             let cc = Condition::get_cond(opcode >> 3);
-            let nn = memory.read_word(address + 1)?;
+            let nn = memory.read_word(address + 1);
             (Instruction::JP_CC_NN(cc, nn), 3)
         } else if Self::JR.matches(opcode) {
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             (Instruction::JR(n as SignedByte), 2)
         } else if Self::JR_CC.matches(opcode) {
             let cc = Condition::get_cond(opcode >> 3);
-            let n = memory.read_byte(address + 1)?;
+            let n = memory.read_byte(address + 1);
             (Instruction::JR_CC(cc, n as SignedByte), 2)
         } else if Self::DAA.matches(opcode) {
             (Instruction::DAA, 1)
@@ -610,7 +610,7 @@ impl SizedInstruction {
             let rr = Register16::get_rr(opcode >> 4, true);
             (Instruction::ADD_HL_RR(rr), 1)
         } else if Self::ADD_SP_E.matches(opcode) {
-            let e = memory.read_byte(address + 1)? as SignedByte;
+            let e = memory.read_byte(address + 1) as SignedByte;
             (Instruction::ADD_SP_E(e), 2)
         } else if Self::COMP_OP.matches(opcode) {
             let instruction = if opcode & (1 << 4) > 0 {
@@ -655,7 +655,7 @@ impl SizedInstruction {
 
     /// Decode CB-Prefixed instructions
     fn decode_cb(memory: &Memory, address: Address) -> Option<Self> {
-        let opcode = memory.read_byte(address)?;
+        let opcode = memory.read_byte(address);
         debug!("CB-Prefixed OpCode: {:#04X?}", opcode);
         let r = Register::get_r(opcode);
         let instruction = if Self::CB1.matches(opcode) {
@@ -875,7 +875,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::ADD_HL => {
-                let value = memory.read_byte(self.get_hl()).unwrap();
+                let value = memory.read_byte(self.get_hl());
                 let (result, overflow) = self.a.overflowing_add(value);
                 self.zero_flag(result);
                 self.half_carry_flag_add(self.a, value);
@@ -918,7 +918,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SUB_HL => {
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let (result, overflow) = self.a.overflowing_sub(val);
 
                 self.zero_flag(result);
@@ -953,7 +953,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::AND_HL => {
-                let result = self.a & memory.read_byte(self.get_hl()).unwrap();
+                let result = self.a & memory.read_byte(self.get_hl());
                 self.a = result;
                 self.zero_flag(result);
                 self.set_flag(Self::HALF_CARRY_FLAG);
@@ -971,7 +971,7 @@ impl CPU {
                 clock.tick(1, memory);
             }
             Instruction::OR_HL => {
-                let value = memory.read_byte(self.get_hl()).unwrap();
+                let value = memory.read_byte(self.get_hl());
                 let result = self.a | value;
                 self.reset_all_flags();
                 self.zero_flag(result);
@@ -997,7 +997,7 @@ impl CPU {
                 clock.tick(1, memory);
             }
             Instruction::XOR_HL => {
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let result = self.a ^ val;
                 self.reset_all_flags();
                 self.zero_flag(result);
@@ -1030,7 +1030,7 @@ impl CPU {
             }
             Instruction::CP_HL => {
                 let address = self.get_hl();
-                let val = memory.read_byte(address).unwrap();
+                let val = memory.read_byte(address);
                 let (result, overflow) = self.a.overflowing_sub(val);
 
                 self.zero_flag(result);
@@ -1090,7 +1090,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::ADC_HL => {
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_add(val);
                 let (res2, ovf2) = res1.overflowing_add(cf);
@@ -1140,7 +1140,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::SBC_HL => {
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_sub(val);
                 let (res2, ovf2) = res1.overflowing_sub(cf);
@@ -1168,7 +1168,7 @@ impl CPU {
                 clock.tick(2, memory);
             }
             Instruction::LD_R_HL(r) => {
-                let data = memory.read_byte(self.get_hl()).unwrap();
+                let data = memory.read_byte(self.get_hl());
                 self.set_register(r, data);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
@@ -1179,24 +1179,20 @@ impl CPU {
                 clock.tick(3, memory);
             }
             Instruction::LD_A_HL_I => {
-                self.a = memory
-                    .read_byte(self.get_hl())
-                    .expect("Could not read address");
+                self.a = memory.read_byte(self.get_hl());
                 self.set_hl(self.get_hl() + 1);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
             Instruction::LD_A_HL_D => {
-                self.a = memory
-                    .read_byte(self.get_hl())
-                    .expect("Could not read address");
+                self.a = memory.read_byte(self.get_hl());
                 self.set_hl(self.get_hl() - 1);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
             Instruction::LDH_A_C => {
                 let address = bytes2word(self.c, 0xFF);
-                let data = memory.read_byte(address).unwrap();
+                let data = memory.read_byte(address);
                 self.a = data;
                 self.pc += instruction.size;
                 clock.tick(2, memory);
@@ -1244,13 +1240,13 @@ impl CPU {
             Instruction::LD_A_BC => {
                 self.pc += instruction.size;
                 let address = self.get_register16(Register16::BC);
-                self.a = memory.read_byte(address).unwrap();
+                self.a = memory.read_byte(address);
                 clock.tick(2, memory);
             }
             Instruction::LD_A_DE => {
                 self.pc += instruction.size;
                 let address = self.get_register16(Register16::DE);
-                self.a = memory.read_byte(address).unwrap();
+                self.a = memory.read_byte(address);
                 clock.tick(2, memory);
             }
             Instruction::LD_BC_A => {
@@ -1268,7 +1264,7 @@ impl CPU {
             Instruction::LD_A_NN(nn) => {
                 self.pc += instruction.size;
                 clock.tick(2, memory);
-                self.a = memory.read_byte(nn).unwrap();
+                self.a = memory.read_byte(nn);
                 clock.tick(2, memory);
             }
             Instruction::LD_NN_A(nn) => {
@@ -1288,7 +1284,7 @@ impl CPU {
                 self.pc += 2;
                 let address = bytes2word(n, 0xFF);
                 clock.tick(1, memory);
-                let data = memory.read_byte(address).unwrap();
+                let data = memory.read_byte(address);
                 self.a = data;
                 clock.tick(2, memory);
             }
@@ -1323,7 +1319,7 @@ impl CPU {
                 clock.tick(1, memory);
             }
             Instruction::INC_HL => {
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let (result, _overflow) = val.overflowing_add(1);
 
                 self.zero_flag(result);
@@ -1349,7 +1345,7 @@ impl CPU {
             }
             Instruction::DEC_HL => {
                 let address = self.get_hl();
-                let val = memory.read_byte(address).unwrap();
+                let val = memory.read_byte(address);
                 let (result, _overflow) = val.overflowing_sub(1);
 
                 self.zero_flag(result);
@@ -1396,7 +1392,7 @@ impl CPU {
             }
             Instruction::SET_HL(b) => {
                 clock.tick(1, memory);
-                let result = memory.read_byte(self.get_hl()).unwrap() | (1 << b);
+                let result = memory.read_byte(self.get_hl()) | (1 << b);
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
@@ -1412,7 +1408,7 @@ impl CPU {
             Instruction::RES_HL(b) => {
                 clock.tick(1, memory);
                 let mask = !(1 << b);
-                let result = memory.read_byte(self.get_hl()).unwrap() & mask;
+                let result = memory.read_byte(self.get_hl()) & mask;
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
                 self.pc += instruction.size;
@@ -1428,7 +1424,7 @@ impl CPU {
             }
             Instruction::BIT_HL(b) => {
                 clock.tick(1, memory);
-                let result = (memory.read_byte(self.get_hl()).unwrap() & (1 << b)) >> b;
+                let result = (memory.read_byte(self.get_hl()) & (1 << b)) >> b;
                 self.reset_flag(Self::SUBTRACT_FLAG);
                 self.set_flag(Self::HALF_CARRY_FLAG);
                 self.zero_flag(result);
@@ -1544,9 +1540,9 @@ impl CPU {
             }
             Instruction::POP(rr) => {
                 self.pc += 1;
-                let lsb = memory.read_byte(self.sp).unwrap();
+                let lsb = memory.read_byte(self.sp);
                 self.sp += 1;
-                let msb = memory.read_byte(self.sp).unwrap();
+                let msb = memory.read_byte(self.sp);
                 self.sp += 1;
                 self.set_register16(rr, bytes2word(lsb, msb));
                 clock.tick(3, memory);
@@ -1602,7 +1598,7 @@ impl CPU {
             }
             Instruction::RL_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (val << 1) | old_carry;
                 self.reset_all_flags();
@@ -1630,7 +1626,7 @@ impl CPU {
             }
             Instruction::RLC_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let r7 = val >> 7;
                 let result = (val << 1) | r7;
                 self.reset_all_flags();
@@ -1684,7 +1680,7 @@ impl CPU {
             }
             Instruction::RR_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
                 let result = (val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
@@ -1712,7 +1708,7 @@ impl CPU {
             }
             Instruction::RRC_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let r0 = val & 1;
                 let result = (val >> 1) | (r0 << 7);
                 self.reset_all_flags();
@@ -1766,7 +1762,7 @@ impl CPU {
             }
             Instruction::SLA_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let r7 = val >> 7;
                 let result = val << 1;
                 self.reset_all_flags();
@@ -1795,7 +1791,7 @@ impl CPU {
             }
             Instruction::SRA_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let r7 = val >> 7;
                 let r0 = val & 1;
                 let result = (val >> 1) | (r7 << 7);
@@ -1823,7 +1819,7 @@ impl CPU {
             }
             Instruction::SRL_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let result = val >> 1;
                 self.reset_all_flags();
                 self.zero_flag(result);
@@ -1846,7 +1842,7 @@ impl CPU {
             }
             Instruction::SWAP_HL => {
                 clock.tick(1, memory);
-                let val = memory.read_byte(self.get_hl()).unwrap();
+                let val = memory.read_byte(self.get_hl());
                 let result = (val >> 4) | ((val & 0xf) << 4);
                 self.reset_all_flags();
                 self.zero_flag(result);
@@ -1881,7 +1877,7 @@ impl CPU {
                 panic!(
                     "Could not execute {:#04X?} with opcode {:#04X?} at address {:#04X?}",
                     instruction,
-                    memory.read_byte_unsafe(self.pc),
+                    memory.read_byte(self.pc),
                     self.pc
                 );
             }
@@ -1891,8 +1887,8 @@ impl CPU {
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {
-        let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS).unwrap();
-        let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS).unwrap();
+        let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS);
+        let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS);
         let mut flag_bytes = interrupt_enable & interrupt_flag;
 
         // handle halt
@@ -1906,25 +1902,25 @@ impl CPU {
         if flag_bytes != 0 {
             self.ime_disable();
             self.push_pc_stack(memory);
-            if Memory::get_flag(flag_bytes, Self::VBLANK_FLAG) {
+            if get_flag(flag_bytes, Self::VBLANK_FLAG) {
                 info!("VBLANK Interrupt");
-                Memory::reset_flag(&mut flag_bytes, Self::VBLANK_FLAG);
+                reset_flag(&mut flag_bytes, Self::VBLANK_FLAG);
                 self.pc = 0x40;
-            } else if Memory::get_flag(flag_bytes, Self::LCD_FLAG) {
+            } else if get_flag(flag_bytes, Self::LCD_FLAG) {
                 info!("LCD Interrupt");
-                Memory::reset_flag(&mut flag_bytes, Self::LCD_FLAG);
+                reset_flag(&mut flag_bytes, Self::LCD_FLAG);
                 self.pc = 0x48;
-            } else if Memory::get_flag(flag_bytes, Self::TIMER_FLAG) {
+            } else if get_flag(flag_bytes, Self::TIMER_FLAG) {
                 info!("TIMER Interrupt");
-                Memory::reset_flag(&mut flag_bytes, Self::TIMER_FLAG);
+                reset_flag(&mut flag_bytes, Self::TIMER_FLAG);
                 self.pc = 0x50;
-            } else if Memory::get_flag(flag_bytes, Self::SERIAL_FLAG) {
+            } else if get_flag(flag_bytes, Self::SERIAL_FLAG) {
                 info!("SERIAL Interrupt");
-                Memory::reset_flag(&mut flag_bytes, Self::SERIAL_FLAG);
+                reset_flag(&mut flag_bytes, Self::SERIAL_FLAG);
                 self.pc = 0x58;
-            } else if Memory::get_flag(flag_bytes, Self::JOYPAD_FLAG) {
+            } else if get_flag(flag_bytes, Self::JOYPAD_FLAG) {
                 info!("JOYPAD Interrupt");
-                Memory::reset_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
+                reset_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
                 self.pc = 0x60;
             }
         }
@@ -2080,9 +2076,9 @@ impl CPU {
 
     /// Pop pc register values from [sp+1],[sp+2]
     fn pop_pc_stack(&mut self, memory: &mut Memory) {
-        let lsb = memory.read_byte(self.sp).unwrap();
+        let lsb = memory.read_byte(self.sp);
         self.sp += 1;
-        let msb = memory.read_byte(self.sp).unwrap();
+        let msb = memory.read_byte(self.sp);
         self.sp += 1;
         self.pc = bytes2word(lsb, msb);
     }
