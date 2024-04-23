@@ -17,6 +17,7 @@ const UNLOAD_BOOT_ADDRESS: usize = 0xFF50;
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum CartridgeType {
+    None,
     RomOnly,
     MBC1,
 }
@@ -79,6 +80,7 @@ impl Memory {
         self.cartridge = match ctype {
             CartridgeType::RomOnly => CartridgeState::RomOnly(RomState {}),
             CartridgeType::MBC1 => CartridgeState::MBC1(MBC1State::new()),
+            CartridgeType::None => panic!("Unknown cartridge type"),
         };
 
         // copy rom_data to self.rom
@@ -137,13 +139,16 @@ impl Memory {
                     unimplemented!("{}", address2string(address as Address));
                 }
             }
+            CartridgeType::None => {
+                self.memory[address] = byte;
+            }
         }
     }
 
     /// Get cartridge type from memory
     pub fn get_cartridge_type(&self) -> CartridgeType {
         match self.cartridge {
-            CartridgeState::None => panic!("Cartridge not loaded"),
+            CartridgeState::None => CartridgeType::None,
             CartridgeState::RomOnly(_) => CartridgeType::RomOnly,
             CartridgeState::MBC1(_) => CartridgeType::MBC1,
         }
@@ -177,5 +182,9 @@ impl Memory {
         let mut mem_val = self.read_byte(address);
         mem_val = mem_val.wrapping_add(value);
         self.write_byte(address, mem_val);
+    }
+
+    pub fn write_test(&mut self, rom: Vec<Byte>) {
+        self.memory[..rom.len()].copy_from_slice(&rom);
     }
 }

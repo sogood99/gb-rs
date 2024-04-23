@@ -8,7 +8,7 @@ mod tests {
     fn decode_ldrr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x41]);
+        memory.write_test(vec![0x41]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -25,7 +25,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 3;
-        memory.load_rom(vec![0x06, n]);
+        memory.write_test(vec![0x06, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -41,7 +41,7 @@ mod tests {
     fn decode_ldrhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x46]);
+        memory.write_test(vec![0x46]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -57,7 +57,7 @@ mod tests {
     fn decode_ldhlr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x70]);
+        memory.write_test(vec![0x70]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -74,7 +74,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 3;
-        memory.load_rom(vec![0x36, n]);
+        memory.write_test(vec![0x36, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -90,7 +90,7 @@ mod tests {
     fn decode_ldabc() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x0A]);
+        memory.write_test(vec![0x0A]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -106,7 +106,7 @@ mod tests {
     fn decode_ldade() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x1A]);
+        memory.write_test(vec![0x1A]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -122,7 +122,7 @@ mod tests {
     fn decode_ldbca() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x02]);
+        memory.write_test(vec![0x02]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -138,7 +138,7 @@ mod tests {
     fn decode_lddea() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x12]);
+        memory.write_test(vec![0x12]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -154,7 +154,7 @@ mod tests {
     fn decode_ldann() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xFA, 0x20, 0x03]);
+        memory.write_test(vec![0xFA, 0x20, 0x03]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -170,7 +170,7 @@ mod tests {
     fn decode_ldnna() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xEA, 0x20, 0x03]);
+        memory.write_test(vec![0xEA, 0x20, 0x03]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -186,7 +186,7 @@ mod tests {
     fn decode_ldhac() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xf2]);
+        memory.write_test(vec![0xf2]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -202,7 +202,7 @@ mod tests {
     fn decode_ldhca() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xe2]);
+        memory.write_test(vec![0xe2]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -219,7 +219,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 10;
-        memory.load_rom(vec![0xf0, n]);
+        memory.write_test(vec![0xf0, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -236,7 +236,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 10;
-        memory.load_rom(vec![0xe0, n]);
+        memory.write_test(vec![0xe0, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -252,7 +252,7 @@ mod tests {
     fn decode_ldahld() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x3a]);
+        memory.write_test(vec![0x3a]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -268,7 +268,7 @@ mod tests {
     fn decode_ldhdad() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x32]);
+        memory.write_test(vec![0x32]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -284,7 +284,7 @@ mod tests {
     fn decode_ldahli() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x2a]);
+        memory.write_test(vec![0x2a]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -300,7 +300,7 @@ mod tests {
     fn decode_ldhlai() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x22]);
+        memory.write_test(vec![0x22]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -316,7 +316,7 @@ mod tests {
     fn decode_ldrrnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x01, 0x10, 0x20]);
+        memory.write_test(vec![0x01, 0x10, 0x20]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -332,7 +332,7 @@ mod tests {
     fn decode_ldspnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x31, 0x10, 0x20]);
+        memory.write_test(vec![0x31, 0x10, 0x20]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -348,7 +348,7 @@ mod tests {
     fn decode_ldnnsp() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x08, 0x30, 0x20]);
+        memory.write_test(vec![0x08, 0x30, 0x20]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -364,7 +364,7 @@ mod tests {
     fn decode_ldsphl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xf9]);
+        memory.write_test(vec![0xf9]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -380,7 +380,7 @@ mod tests {
     fn decode_ldhlsp() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xF8, 0xFF]);
+        memory.write_test(vec![0xF8, 0xFF]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -396,7 +396,7 @@ mod tests {
     fn decode_push() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC5]);
+        memory.write_test(vec![0xC5]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -412,7 +412,7 @@ mod tests {
     fn decode_pop() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC1]);
+        memory.write_test(vec![0xC1]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -428,7 +428,7 @@ mod tests {
     fn decode_addr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x80]);
+        memory.write_test(vec![0x80]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -444,7 +444,7 @@ mod tests {
     fn decode_addhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x86]);
+        memory.write_test(vec![0x86]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -462,7 +462,7 @@ mod tests {
 
         let n = 0xf0;
 
-        memory.load_rom(vec![0xC6, n]);
+        memory.write_test(vec![0xC6, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -478,7 +478,7 @@ mod tests {
     fn decode_adcr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x88]);
+        memory.write_test(vec![0x88]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -494,7 +494,7 @@ mod tests {
     fn decode_adchl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x8E]);
+        memory.write_test(vec![0x8E]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -512,7 +512,7 @@ mod tests {
 
         let n = 0xf0;
 
-        memory.load_rom(vec![0xCE, n]);
+        memory.write_test(vec![0xCE, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -528,7 +528,7 @@ mod tests {
     fn decode_subr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x90]);
+        memory.write_test(vec![0x90]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -544,7 +544,7 @@ mod tests {
     fn decode_subhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x96]);
+        memory.write_test(vec![0x96]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -561,7 +561,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 0x10;
-        memory.load_rom(vec![0xD6, n]);
+        memory.write_test(vec![0xD6, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -577,7 +577,7 @@ mod tests {
     fn decode_sbcr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x98]);
+        memory.write_test(vec![0x98]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -593,7 +593,7 @@ mod tests {
     fn decode_sbchl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x9E]);
+        memory.write_test(vec![0x9E]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -610,7 +610,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 0x10;
-        memory.load_rom(vec![0xDE, n]);
+        memory.write_test(vec![0xDE, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -626,7 +626,7 @@ mod tests {
     fn decode_cpr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xB8]);
+        memory.write_test(vec![0xB8]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -642,7 +642,7 @@ mod tests {
     fn decode_cphl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xBE]);
+        memory.write_test(vec![0xBE]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -659,7 +659,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 100;
-        memory.load_rom(vec![0xFE, n]);
+        memory.write_test(vec![0xFE, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -675,7 +675,7 @@ mod tests {
     fn decode_incr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x04]);
+        memory.write_test(vec![0x04]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -691,7 +691,7 @@ mod tests {
     fn decode_inchl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x34]);
+        memory.write_test(vec![0x34]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -707,7 +707,7 @@ mod tests {
     fn decode_decr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x05]);
+        memory.write_test(vec![0x05]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -723,7 +723,7 @@ mod tests {
     fn decode_dechl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x35]);
+        memory.write_test(vec![0x35]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -739,7 +739,7 @@ mod tests {
     fn decode_andr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xA0]);
+        memory.write_test(vec![0xA0]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -755,7 +755,7 @@ mod tests {
     fn decode_andhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xA6]);
+        memory.write_test(vec![0xA6]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -772,7 +772,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 100;
-        memory.load_rom(vec![0xE6, n]);
+        memory.write_test(vec![0xE6, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -788,7 +788,7 @@ mod tests {
     fn decode_orr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xB0]);
+        memory.write_test(vec![0xB0]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -804,7 +804,7 @@ mod tests {
     fn decode_orhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xB6]);
+        memory.write_test(vec![0xB6]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -821,7 +821,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 100;
-        memory.load_rom(vec![0xF6, n]);
+        memory.write_test(vec![0xF6, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -837,7 +837,7 @@ mod tests {
     fn decode_xorr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xA8]);
+        memory.write_test(vec![0xA8]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -853,7 +853,7 @@ mod tests {
     fn decode_xorhl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xAE]);
+        memory.write_test(vec![0xAE]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -870,7 +870,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let n = 100;
-        memory.load_rom(vec![0xEE, n]);
+        memory.write_test(vec![0xEE, n]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -886,7 +886,7 @@ mod tests {
     fn decode_ccf() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x3F]);
+        memory.write_test(vec![0x3F]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -902,7 +902,7 @@ mod tests {
     fn decode_scf() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x37]);
+        memory.write_test(vec![0x37]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -918,7 +918,7 @@ mod tests {
     fn decode_daa() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x27]);
+        memory.write_test(vec![0x27]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -934,7 +934,7 @@ mod tests {
     fn decode_incrr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x03]);
+        memory.write_test(vec![0x03]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -950,7 +950,7 @@ mod tests {
     fn decode_decrr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x0B]);
+        memory.write_test(vec![0x0B]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -966,7 +966,7 @@ mod tests {
     fn decode_jpnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC3, 0x20, 0x30]);
+        memory.write_test(vec![0xC3, 0x20, 0x30]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -982,7 +982,7 @@ mod tests {
     fn decode_jphl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xE9]);
+        memory.write_test(vec![0xE9]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -998,7 +998,7 @@ mod tests {
     fn decode_jpccnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC2, 0x20, 0x30]);
+        memory.write_test(vec![0xC2, 0x20, 0x30]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1014,7 +1014,7 @@ mod tests {
     fn decode_jr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x18, 0xff]);
+        memory.write_test(vec![0x18, 0xff]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1030,7 +1030,7 @@ mod tests {
     fn decode_jrz() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x28, 0xff]);
+        memory.write_test(vec![0x28, 0xff]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1046,7 +1046,7 @@ mod tests {
     fn decode_jrcc() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x20, 0xff]);
+        memory.write_test(vec![0x20, 0xff]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1062,7 +1062,7 @@ mod tests {
     fn decode_callnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCD, 0xff, 0x10]);
+        memory.write_test(vec![0xCD, 0xff, 0x10]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1078,7 +1078,7 @@ mod tests {
     fn decode_callccnn() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC4, 0xff, 0x10]);
+        memory.write_test(vec![0xC4, 0xff, 0x10]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1094,7 +1094,7 @@ mod tests {
     fn decode_ret() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC9]);
+        memory.write_test(vec![0xC9]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1110,7 +1110,7 @@ mod tests {
     fn decode_retcc() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xC0]);
+        memory.write_test(vec![0xC0]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1126,7 +1126,7 @@ mod tests {
     fn decode_reti() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xD9]);
+        memory.write_test(vec![0xD9]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1142,7 +1142,7 @@ mod tests {
     fn decode_rst() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xDF]);
+        memory.write_test(vec![0xDF]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1159,7 +1159,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let e = 255;
-        memory.load_rom(vec![0xE8, e]);
+        memory.write_test(vec![0xE8, e]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1176,7 +1176,7 @@ mod tests {
         let mut memory = Memory::new();
 
         let e = 255;
-        memory.load_rom(vec![0xE8, e]);
+        memory.write_test(vec![0xE8, e]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1192,7 +1192,7 @@ mod tests {
     fn decode_rra() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x1F]);
+        memory.write_test(vec![0x1F]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1208,7 +1208,7 @@ mod tests {
     fn decode_rrca() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x0F]);
+        memory.write_test(vec![0x0F]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1224,7 +1224,7 @@ mod tests {
     fn decode_rla() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x17]);
+        memory.write_test(vec![0x17]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1240,7 +1240,7 @@ mod tests {
     fn decode_rlca() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0x07]);
+        memory.write_test(vec![0x07]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1256,7 +1256,7 @@ mod tests {
     fn decode_rlc() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x01]);
+        memory.write_test(vec![0xCB, 0x01]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1272,7 +1272,7 @@ mod tests {
     fn decode_rl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x12]);
+        memory.write_test(vec![0xCB, 0x12]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1288,7 +1288,7 @@ mod tests {
     fn decode_sla() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x24]);
+        memory.write_test(vec![0xCB, 0x24]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1304,7 +1304,7 @@ mod tests {
     fn decode_slahl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x26]);
+        memory.write_test(vec![0xCB, 0x26]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1320,7 +1320,7 @@ mod tests {
     fn decode_swap() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x35]);
+        memory.write_test(vec![0xCB, 0x35]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1336,7 +1336,7 @@ mod tests {
     fn decode_rrc() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x08]);
+        memory.write_test(vec![0xCB, 0x08]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1352,7 +1352,7 @@ mod tests {
     fn decode_rr() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x1b]);
+        memory.write_test(vec![0xCB, 0x1b]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1368,7 +1368,7 @@ mod tests {
     fn decode_sra() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x2c]);
+        memory.write_test(vec![0xCB, 0x2c]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1384,7 +1384,7 @@ mod tests {
     fn decode_srl() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x3f]);
+        memory.write_test(vec![0xCB, 0x3f]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1400,7 +1400,7 @@ mod tests {
     fn decode_bit() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x62]);
+        memory.write_test(vec![0xCB, 0x62]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1416,7 +1416,7 @@ mod tests {
     fn decode_res() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0x99]);
+        memory.write_test(vec![0xCB, 0x99]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1432,7 +1432,7 @@ mod tests {
     fn decode_set() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xCB, 0xea]);
+        memory.write_test(vec![0xCB, 0xea]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1448,7 +1448,7 @@ mod tests {
     fn decode_ei() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xFB]);
+        memory.write_test(vec![0xFB]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1464,7 +1464,7 @@ mod tests {
     fn decode_di() {
         let mut memory = Memory::new();
 
-        memory.load_rom(vec![0xF3]);
+        memory.write_test(vec![0xF3]);
 
         let instr = SizedInstruction::decode(&mut memory, 0).unwrap();
         assert_eq!(
@@ -1483,7 +1483,7 @@ mod tests {
         let mut clock = Clock::new();
 
         cpu.pc = 0;
-        memory.load_rom(vec![0x80]);
+        memory.write_test(vec![0x80]);
 
         // Set initial register values
         cpu.a = 0x10;
@@ -1502,7 +1502,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0x86]);
+        memory.write_test(vec![0x86]);
 
         cpu.a = 0x10;
         cpu.h = 0x12;
@@ -1524,7 +1524,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xC6, 0x20]);
+        memory.write_test(vec![0xC6, 0x20]);
 
         cpu.a = 0x10;
 
@@ -1539,7 +1539,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xA8]);
+        memory.write_test(vec![0xA8]);
 
         cpu.a = 0b11001100;
         cpu.b = 0b10101010;
@@ -1555,7 +1555,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xE8, 0xfe]);
+        memory.write_test(vec![0xE8, 0xfe]);
 
         cpu.sp = 1;
 
@@ -1572,7 +1572,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xE8, 0xff]);
+        memory.write_test(vec![0xE8, 0xff]);
 
         cpu.sp = 0xf;
 
@@ -1589,7 +1589,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0x30]);
+        memory.write_test(vec![0xCB, 0x30]);
 
         cpu.b = 0xef;
 
@@ -1608,7 +1608,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0x30]);
+        memory.write_test(vec![0xCB, 0x30]);
 
         cpu.b = 0;
 
@@ -1627,7 +1627,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xF8, 0xFE]);
+        memory.write_test(vec![0xF8, 0xFE]);
 
         cpu.sp = 0x2;
 
@@ -1645,7 +1645,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0x2F]);
+        memory.write_test(vec![0x2F]);
 
         cpu.a = 0xe2;
 
@@ -1660,7 +1660,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0xC0]);
+        memory.write_test(vec![0xCB, 0xC0]);
 
         cpu.b = 0xCA;
 
@@ -1672,7 +1672,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0xC0]);
+        memory.write_test(vec![0xCB, 0xC0]);
 
         cpu.b = 0xCB;
 
@@ -1687,7 +1687,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0x80]);
+        memory.write_test(vec![0xCB, 0x80]);
 
         cpu.b = 0xCB;
 
@@ -1699,7 +1699,7 @@ mod tests {
         let mut memory = Memory::new();
         let mut clock = Clock::new();
 
-        memory.load_rom(vec![0xCB, 0x80]);
+        memory.write_test(vec![0xCB, 0x80]);
 
         cpu.b = 0xCA;
 
