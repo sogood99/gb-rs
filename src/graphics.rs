@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
+use log::info;
 use sdl2::{
     pixels::{Color, PixelFormatEnum},
-    rect::Point,
     render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
     EventPump, Sdl, TimerSubsystem,
@@ -10,6 +10,7 @@ use sdl2::{
 use std::fmt;
 
 use crate::{
+    clock,
     memory::Memory,
     utils::{Address, Byte, Word},
 };
@@ -36,6 +37,15 @@ const BG_TILE_MAP_FLAG: Byte = 0b0000_1000;
 const OBJ_SIZE_FLAG: Byte = 0b0000_0100;
 const OBJ_ENABLE_FLAG: Byte = 0b0000_0010;
 const BGW_ENABLE_FLAG: Byte = 0b0000_0001;
+
+const LCD_STATUS_ADDRESS: Address = 0xFF41;
+const LCY_INT_FLAG: Byte = 0b0100_0000;
+const MODE2_INT_FLAG: Byte = 0b0010_0000;
+const MODE1_INT_FLAG: Byte = 0b0001_0000;
+const MODE0_INT_FLAG: Byte = 0b0000_1000;
+const LYC_EQ_LY_FLAG: Byte = 0b0000_0100;
+
+const SCANLINE_CYCLES: u128 = 114;
 
 const BLACK: Color = Color::RGB(15, 56, 15);
 const DARK_GREY: Color = Color::RGB(48, 98, 48);
@@ -89,18 +99,6 @@ impl PixelPos {
             y: self.y + 1,
         }
     }
-    fn add(&self, dx: usize, dy: usize) -> Self {
-        Self {
-            x: self.x + dx,
-            y: self.y + dy,
-        }
-    }
-    fn subtract(&self, dx: usize, dy: usize) -> Self {
-        Self {
-            x: self.x - dx,
-            y: self.y - dy,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
@@ -140,8 +138,6 @@ impl Tile {
     }
 
     pub fn fetch_tile(memory: &Memory, pixel_source: PixelSource, address: Address) -> Self {
-        // println!("{}", address2string(address));
-
         let default_tile = Pixel {
             color_ref: 0,
             pixel_source,
@@ -283,6 +279,19 @@ impl BgFIFO {
 
 pub struct ObjFIFO {}
 
+/// PPU Mode with corresponding line number
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum PPUMode {
+    /// Horizontal BLANK
+    Mode0(usize),
+    /// Vertical BLANK
+    Mode1(usize),
+    /// OAM Scan
+    Mode2(usize),
+    /// Drawing Pixels
+    Mode3(usize),
+}
+
 pub struct Graphics {
     pub context: Sdl,
     pub canvas: Canvas<Window>,
@@ -293,10 +302,9 @@ pub struct Graphics {
     // gb related
     line_y: usize,
     screen_buffer: [Byte; SCREEN_WIDTH * SCREEN_HEIGHT * 3],
-    line_drawn: bool,
-    rendered: bool,
     last_timestamp: u128,
     bg_fifo: BgFIFO,
+    last_ppu_mode: PPUMode,
 }
 
 impl Graphics {
@@ -305,12 +313,12 @@ impl Graphics {
         let context = sdl2::init().unwrap();
 
         // Set hint for vsync
-        // sdl2::hint::set("SDL_HINT_RENDER_VSYNC", "1");
+        sdl2::hint::set("SDL_HINT_RENDER_VSYNC", "1");
 
         // Create window and renderer
         let video_subsystem = context.video().unwrap();
         let window = video_subsystem
-            .window("GB-rs", SCREEN_WIDTH as u32, SCREEN_HEIGHT as u32)
+            .window("GB-rs", SCREEN_WIDTH as u32 * 2, SCREEN_HEIGHT as u32 * 2)
             .position_centered()
             .build()
             .unwrap();
@@ -334,10 +342,9 @@ impl Graphics {
             timer,
             screen_buffer: [0; PIXEL_COUNT * 3],
             line_y: 0,
-            line_drawn: false,
-            rendered: false,
             last_timestamp: 0,
             bg_fifo: BgFIFO::new(),
+            last_ppu_mode: PPUMode::Mode1(153),
         }
     }
 
@@ -349,61 +356,94 @@ impl Graphics {
     pub fn render(&mut self, memory: &mut Memory, timestamp: u128) {
         let clock_diff = timestamp - self.last_timestamp;
 
-        if clock_diff >= 114 {
+        if clock_diff >= SCANLINE_CYCLES {
             // to next line
-            self.last_timestamp = self.last_timestamp + 114;
+            self.last_timestamp = self.last_timestamp + SCANLINE_CYCLES;
             self.line_y += 1;
-            self.line_drawn = false;
-            memory.write_byte(LY_ADDRESS, self.line_y as Byte);
-        }
-
-        if self.line_y >= 144 {
-            // render to screen
-            if !self.rendered {
-                let mut texture = self
-                    .texture_creator
-                    .create_texture_target(
-                        PixelFormatEnum::RGB24,
-                        SCREEN_WIDTH as u32,
-                        SCREEN_HEIGHT as u32,
-                    )
-                    .unwrap();
-                texture
-                    .update(None, &self.screen_buffer, SCREEN_WIDTH * 3)
-                    .unwrap();
-                self.canvas.copy(&texture, None, None).unwrap();
-                self.canvas.present();
-                self.rendered = true;
-            }
-        } else if !self.line_drawn && clock_diff > 20 && clock_diff <= 92 {
-            // draw line to screen
-
-            self.bg_fifo.next_line(memory);
-            for x in 0..SCREEN_WIDTH {
-                let val = self.bg_fifo.pop(memory);
-                let color = match val.color_ref {
-                    0 => BLACK,
-                    1 => DARK_GREY,
-                    2 => LIGHT_GREY,
-                    3 => WHITE,
-                    _ => panic!("{:?} unknown pixel value", val),
-                };
-
-                let offset = self.line_y * SCREEN_WIDTH * 3 + x * 3;
-                self.screen_buffer[offset] = color.r;
-                self.screen_buffer[offset + 1] = color.g;
-                self.screen_buffer[offset + 2] = color.b;
-            }
-            self.line_drawn = true;
         }
 
         if self.line_y > 153 {
             // next cycle
             self.line_y = 0;
-            self.line_drawn = false;
-            self.rendered = false;
             self.bg_fifo = BgFIFO::new();
-            memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+        }
+
+        let clock_diff = timestamp - self.last_timestamp;
+        let current_ppu_mode = self.get_mode(clock_diff);
+
+        if self.last_ppu_mode != current_ppu_mode {
+            // PPU Mode transitions
+            match (self.last_ppu_mode, current_ppu_mode) {
+                (PPUMode::Mode1(l1), PPUMode::Mode2(l2)) if l1 == 153 && l2 == 0 => {
+                    // new frame
+                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                }
+                (PPUMode::Mode2(l1), PPUMode::Mode3(l2)) if l1 == l2 => {
+                    // draw line to screen_buffer
+                    self.bg_fifo.next_line(memory);
+                    for x in 0..SCREEN_WIDTH {
+                        let val = self.bg_fifo.pop(memory);
+                        let color = match val.color_ref {
+                            0 => BLACK,
+                            1 => DARK_GREY,
+                            2 => LIGHT_GREY,
+                            3 => WHITE,
+                            _ => panic!("{:?} unknown pixel value", val),
+                        };
+
+                        let offset = self.line_y * SCREEN_WIDTH * 3 + x * 3;
+                        self.screen_buffer[offset] = color.r;
+                        self.screen_buffer[offset + 1] = color.g;
+                        self.screen_buffer[offset + 2] = color.b;
+                    }
+                }
+                (PPUMode::Mode3(l1), PPUMode::Mode0(l2)) if l1 == l2 => {
+                    // finish draw pixel to hblank
+                }
+                (PPUMode::Mode0(l1), PPUMode::Mode2(l2)) if l1 + 1 == l2 => {
+                    // newline
+                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                }
+                (PPUMode::Mode0(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
+                    // render to screen if vblank
+                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                    let mut texture = self
+                        .texture_creator
+                        .create_texture_target(
+                            PixelFormatEnum::RGB24,
+                            SCREEN_WIDTH as u32,
+                            SCREEN_HEIGHT as u32,
+                        )
+                        .unwrap();
+                    texture
+                        .update(None, &self.screen_buffer, SCREEN_WIDTH * 3)
+                        .unwrap();
+                    self.canvas.copy(&texture, None, None).unwrap();
+                    self.canvas.present();
+                }
+                (PPUMode::Mode1(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
+                    // newline in vblank mode
+                    memory.write_byte(LY_ADDRESS, self.line_y as Byte);
+                }
+                _ => panic!(
+                    "PPU Transition Error {:?} {:?}, Clock Diff {:?} at line {:?}",
+                    self.last_ppu_mode, current_ppu_mode, clock_diff, self.line_y
+                ),
+            }
+            self.last_ppu_mode = current_ppu_mode;
+        }
+    }
+
+    fn get_mode(&self, clock_diff: u128) -> PPUMode {
+        assert!(clock_diff <= SCANLINE_CYCLES);
+        if self.line_y >= 144 {
+            PPUMode::Mode1(self.line_y)
+        } else if clock_diff <= 20 {
+            PPUMode::Mode2(self.line_y)
+        } else if clock_diff < 77 {
+            PPUMode::Mode3(self.line_y)
+        } else {
+            PPUMode::Mode0(self.line_y)
         }
     }
 }

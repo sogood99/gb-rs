@@ -65,7 +65,7 @@ impl Debugger {
             || self.breakpoints.contains(&Breakpoint::Addr(cpu.pc))
     }
 
-    /// Check if
+    /// Check if pause, with effect
     fn check_pause(&mut self, cpu: &CPU, memory: &Memory) -> bool {
         if self.pause {
             true
@@ -102,6 +102,7 @@ impl GameBoy {
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
         self.memory.load_rom_offset(rom_data, 0x100);
+        // self.memory.load_rom(rom_data);
     }
 
     pub fn load_boot(&mut self, boot_data: Vec<u8>) {
@@ -187,10 +188,10 @@ impl GameBoy {
 
                 graphics.render(&mut self.memory, self.clock.get_timestamp());
                 if self.clock.get_timestamp() - last_timestamp > 17476 {
-                    last_timestamp = self.clock.get_timestamp();
                     while last_time.elapsed().as_millis() < 16 {
                         graphics.timer.delay(1);
                     }
+                    last_timestamp = self.clock.get_timestamp();
                     last_time = std::time::Instant::now();
                 }
             }
