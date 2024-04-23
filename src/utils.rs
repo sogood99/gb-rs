@@ -56,7 +56,7 @@ impl WordOP for u16 {
 }
 
 pub fn byte2stringbit(byte: Byte) -> String {
-    format!("{:#08b}", byte)
+    format!("{:#010b}", byte)
 }
 
 pub fn byte2string(byte: Byte) -> String {

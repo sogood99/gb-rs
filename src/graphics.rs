@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, ops::RangeFrom};
 
+use log::info;
 use sdl2::{
     pixels::{Color, PixelFormatEnum},
     render::{Canvas, TextureCreator},
@@ -11,7 +12,9 @@ use std::fmt;
 use crate::{
     cpu::CPU,
     memory::Memory,
-    utils::{get_flag, set_flag, set_flag_ref, Address, Byte, Word},
+    utils::{
+        address2string, byte2stringbit, get_flag, set_flag, set_flag_ref, Address, Byte, Word,
+    },
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -36,6 +39,7 @@ const BG_TILE_MAP_FLAG: Byte = 0b0000_1000;
 const OBJ_SIZE_FLAG: Byte = 0b0000_0100;
 const OBJ_ENABLE_FLAG: Byte = 0b0000_0010;
 const BGW_ENABLE_FLAG: Byte = 0b0000_0001;
+const BG_PALETTE_ADDRESS: Address = 0xFF47;
 
 const LCD_STATUS_ADDRESS: Address = 0xFF41;
 const LCY_INT_FLAG: Byte = 0b0100_0000;
@@ -46,10 +50,10 @@ const LYC_EQ_LY_FLAG: Byte = 0b0000_0100;
 
 const SCANLINE_CYCLES: u128 = 114;
 
-const BLACK: Color = Color::RGB(15, 56, 15);
-const DARK_GREY: Color = Color::RGB(48, 98, 48);
-const LIGHT_GREY: Color = Color::RGB(139, 172, 15);
-const WHITE: Color = Color::RGB(155, 188, 15);
+const BLACK: Color = Color::RGB(0, 0, 0);
+const DARK_GREY: Color = Color::RGB(48, 48, 48);
+const LIGHT_GREY: Color = Color::RGB(139, 139, 139);
+const WHITE: Color = Color::RGB(255, 255, 255);
 
 #[derive(Clone, Copy, Debug)]
 enum PixelSource {
@@ -389,23 +393,8 @@ impl Graphics {
                     self.set_lyc(memory);
                 }
                 (PPUMode::Mode2(l1), PPUMode::Mode3(l2)) if l1 == l2 => {
-                    // draw line to screen_buffer
-                    self.bg_fifo.next_line(memory);
-                    for x in 0..SCREEN_WIDTH {
-                        let val = self.bg_fifo.pop(memory);
-                        let color = match val.color_ref {
-                            0 => BLACK,
-                            1 => DARK_GREY,
-                            2 => LIGHT_GREY,
-                            3 => WHITE,
-                            _ => panic!("{:?} unknown pixel value", val),
-                        };
-
-                        let offset = self.line_y * SCREEN_WIDTH * 3 + x * 3;
-                        self.screen_buffer[offset] = color.r;
-                        self.screen_buffer[offset + 1] = color.g;
-                        self.screen_buffer[offset + 2] = color.b;
-                    }
+                    // draw scanline
+                    self.draw_scanline(memory);
                 }
                 (PPUMode::Mode3(l1), PPUMode::Mode0(l2)) if l1 == l2 => {
                     // finish draw pixel to hblank
@@ -458,6 +447,46 @@ impl Graphics {
         }
     }
 
+    fn draw_scanline(&mut self, memory: &mut Memory) {
+        // draw line to screen_buffer
+        self.bg_fifo.next_line(memory);
+        for x in 0..SCREEN_WIDTH {
+            let val = self.bg_fifo.pop(memory);
+            let color = Self::bgcolor_ref_to_color(val.color_ref, memory);
+
+            let lcdc = Self::get_lcdc(memory);
+            let color = if get_flag(lcdc, LCDC_ENABLE_FLAG) {
+                color
+            } else {
+                BLACK
+            };
+
+            let offset = self.line_y * SCREEN_WIDTH * 3 + x * 3;
+            self.screen_buffer[offset] = color.r;
+            self.screen_buffer[offset + 1] = color.g;
+            self.screen_buffer[offset + 2] = color.b;
+        }
+    }
+
+    fn bgcolor_ref_to_color(color_ref: Byte, memory: &mut Memory) -> Color {
+        assert!(color_ref <= 3);
+        let palette = memory.read_byte(BG_PALETTE_ADDRESS);
+        let color_idx = match color_ref {
+            0 => palette & 0b11,
+            1 => (palette >> 2) & 0b11,
+            2 => (palette >> 4) & 0b11,
+            3 => (palette >> 6) & 0b11,
+            _ => panic!(),
+        };
+        match color_idx {
+            0 => WHITE,
+            1 => BLACK,
+            2 => BLACK,
+            3 => BLACK,
+            _ => panic!(),
+        }
+    }
+
     /// Set ppu stat flag and LCD interrupt flag
     fn set_ppu(&self, ppu_mode: PPUMode, memory: &mut Memory) {
         let stat_flag = memory.read_byte(LCD_STATUS_ADDRESS) & !0b11;
@@ -497,5 +526,9 @@ impl Graphics {
                 memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
             }
         }
+    }
+
+    fn get_lcdc(memory: &mut Memory) -> Byte {
+        memory.read_byte(LCDC_ADDRESS)
     }
 }
