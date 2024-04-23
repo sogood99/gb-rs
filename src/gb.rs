@@ -88,7 +88,7 @@ impl Debugger {
 impl GameBoy {
     pub fn new(graphics_enabled: bool) -> Self {
         GameBoy {
-            cpu: CPU::new_skip_boot(),
+            cpu: CPU::new(),
             memory: Memory::new(),
             graphics: if graphics_enabled {
                 Some(Graphics::new())
@@ -101,16 +101,15 @@ impl GameBoy {
     }
 
     pub fn load_rom(&mut self, rom_data: Vec<u8>) {
-        // self.memory.load_rom_offset(rom_data, 0x100);
-        self.memory.load_rom(rom_data);
+        self.memory.load_cartidge(rom_data);
     }
 
     pub fn load_boot(&mut self, boot_data: Vec<u8>) {
-        self.memory.load_rom(boot_data);
+        self.memory.load_boot(boot_data);
     }
 
     pub fn run(mut self) {
-        // self.dbg.add_breakpoint(Breakpoint::Addr(0x0c));
+        self.dbg.add_breakpoint(Breakpoint::Addr(0x02));
         // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
 
         // disable all events, enable only ones needed

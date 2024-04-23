@@ -1903,23 +1903,23 @@ impl CPU {
             self.ime_disable();
             self.push_pc_stack(memory);
             if get_flag(flag_bytes, Self::VBLANK_FLAG) {
-                info!("VBLANK Interrupt");
+                debug!("VBLANK Interrupt");
                 reset_flag(&mut flag_bytes, Self::VBLANK_FLAG);
                 self.pc = 0x40;
             } else if get_flag(flag_bytes, Self::LCD_FLAG) {
-                info!("LCD Interrupt");
+                debug!("LCD Interrupt");
                 reset_flag(&mut flag_bytes, Self::LCD_FLAG);
                 self.pc = 0x48;
             } else if get_flag(flag_bytes, Self::TIMER_FLAG) {
-                info!("TIMER Interrupt");
+                debug!("TIMER Interrupt");
                 reset_flag(&mut flag_bytes, Self::TIMER_FLAG);
                 self.pc = 0x50;
             } else if get_flag(flag_bytes, Self::SERIAL_FLAG) {
-                info!("SERIAL Interrupt");
+                debug!("SERIAL Interrupt");
                 reset_flag(&mut flag_bytes, Self::SERIAL_FLAG);
                 self.pc = 0x58;
             } else if get_flag(flag_bytes, Self::JOYPAD_FLAG) {
-                info!("JOYPAD Interrupt");
+                debug!("JOYPAD Interrupt");
                 reset_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
                 self.pc = 0x60;
             }
