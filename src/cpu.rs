@@ -23,7 +23,6 @@ pub const TIMER_FLAG: Byte = 0b100;
 pub const SERIAL_FLAG: Byte = 0b1000;
 pub const JOYPAD_FLAG: Byte = 0b10000;
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register {
     A,
@@ -1872,6 +1871,7 @@ impl CPU {
             }
             Instruction::HALT => {
                 // halt bug
+                unimplemented!();
                 self.halt = true;
                 self.pc += 1;
                 clock.tick(1, memory);
