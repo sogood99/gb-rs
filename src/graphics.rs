@@ -377,7 +377,7 @@ impl FIFO for ObjFIFO {
                 // TODO: modify for 16x8 objects
                 if y_pos <= self.screen_y + 16
                     && self.screen_y + 8 < y_pos
-                    && (x_pos <= 8 || x_pos + 8 < SCREEN_WIDTH)
+                    && (x_pos < 8 || x_pos + 8 < SCREEN_WIDTH)
                 {
                     let tile_start_address = OBJ_TILE_ADDRESS + BYTES_PER_TILE * tile_number;
                     let tile =
@@ -392,7 +392,7 @@ impl FIFO for ObjFIFO {
                         0..8
                     };
 
-                    let tile_line = tile.get_range(xrange.clone(), y);
+                    let tile_line = tile.get_range(0..8, y);
                     for d in xrange {
                         line_pixels[x_pos + d - 8] =
                             Self::merge(line_pixels[x_pos + d - 8], tile_line[d]);

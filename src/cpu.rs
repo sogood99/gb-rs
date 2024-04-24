@@ -1871,7 +1871,7 @@ impl CPU {
             }
             Instruction::HALT => {
                 // halt bug
-                unimplemented!();
+                // unimplemented!();
                 self.halt = true;
                 self.pc += 1;
                 clock.tick(1, memory);

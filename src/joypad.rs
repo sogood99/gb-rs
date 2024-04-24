@@ -83,7 +83,6 @@ impl Joypad {
                 } else {
                     self.last_keys.remove(&keycode);
                 }
-                println!("{} {} {:?}", keycode, down, self.last_keys);
             }
             Keycode::J | Keycode::K | Keycode::U | Keycode::I => {
                 if down {
@@ -96,7 +95,6 @@ impl Joypad {
                 } else {
                     self.last_keys.remove(&keycode);
                 }
-                println!("{} {} {:?}", keycode, down, self.last_keys);
             }
             _ => (),
         }
