@@ -10,6 +10,7 @@ use crate::{
     clock::Clock,
     cpu::{Instruction, SizedInstruction, CPU},
     graphics::Graphics,
+    joypad::Joypad,
     memory::Memory,
     utils::Address,
 };
@@ -19,6 +20,7 @@ pub struct GameBoy {
     memory: Memory,
     graphics: Option<Graphics>,
     clock: Clock,
+    joypad: Joypad,
     dbg: Debugger,
 }
 
@@ -95,6 +97,7 @@ impl GameBoy {
             } else {
                 None
             },
+            joypad: Joypad::new(),
             clock: Clock::new(),
             dbg: Debugger::new(),
         }
@@ -112,6 +115,11 @@ impl GameBoy {
         // self.dbg.add_breakpoint(Breakpoint::Addr(0x039e));
         // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
 
+        // timestamps and time
+        let mut last_timestamp = 0;
+        let mut last_time = std::time::Instant::now();
+        let mut last_poll_time = std::time::Instant::now();
+
         // disable all events, enable only ones needed
         if let Some(ref mut graphics) = self.graphics {
             for i in 0..=65_535 {
@@ -124,12 +132,9 @@ impl GameBoy {
             }
             graphics.event_pump.enable_event(EventType::Quit);
             graphics.event_pump.enable_event(EventType::KeyDown);
+            graphics.event_pump.enable_event(EventType::KeyUp);
         }
 
-        let mut last_timestamp = 0;
-        let mut last_time = std::time::Instant::now();
-
-        let mut last_poll_time = std::time::Instant::now();
         loop {
             // poll every 0.1s
             if let Some(ref mut graphics) = self.graphics {
@@ -153,6 +158,12 @@ impl GameBoy {
                                 keycode: Some(Keycode::RightBracket),
                                 ..
                             } => self.dbg.toggle_step(),
+                            Event::KeyDown {
+                                keycode: Some(k), ..
+                            } => self.joypad.handle_button(k, true, &mut self.memory),
+                            Event::KeyUp {
+                                keycode: Some(k), ..
+                            } => self.joypad.handle_button(k, false, &mut self.memory),
                             _ => {}
                         }
                     }
@@ -162,6 +173,9 @@ impl GameBoy {
             if self.dbg.check_pause(&self.cpu, &self.memory) {
                 continue;
             }
+
+            // update joypad
+            self.joypad.update(&mut self.memory);
 
             // start executing gb
             if self.cpu.halt {

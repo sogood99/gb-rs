@@ -1,10 +1,11 @@
 use log::{debug, info};
-use sdl2::keyboard::Keycode;
 
 use crate::{
     clock::Clock,
     memory::Memory,
-    utils::{bytes2word, get_flag, reset_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP},
+    utils::{
+        bytes2word, get_flag, reset_flag, set_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP,
+    },
 };
 
 // ----- flags -----
@@ -21,6 +22,7 @@ pub const LCD_FLAG: Byte = 0b10;
 pub const TIMER_FLAG: Byte = 0b100;
 pub const SERIAL_FLAG: Byte = 0b1000;
 pub const JOYPAD_FLAG: Byte = 0b10000;
+
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register {
@@ -1920,20 +1922,12 @@ impl CPU {
                 reset_flag(&mut flag_bytes, SERIAL_FLAG);
                 self.pc = 0x58;
             } else if get_flag(flag_bytes, JOYPAD_FLAG) {
-                debug!("JOYPAD Interrupt");
+                info!("JOYPAD Interrupt");
                 reset_flag(&mut flag_bytes, JOYPAD_FLAG);
                 self.pc = 0x60;
             }
         }
         memory.write_byte(INTERRUPT_FLAG_ADDRESS, flag_bytes);
-    }
-
-    /// Handle button press
-    pub fn handle_button(&mut self, keycode: Keycode) {
-        match keycode {
-            Keycode::A => {}
-            _ => {}
-        }
     }
 
     pub fn get_hl(&self) -> Word {
