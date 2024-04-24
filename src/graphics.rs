@@ -69,12 +69,13 @@ const WHITE: Color = Color::RGB(255, 255, 255);
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum PixelSource {
-    Background,
+    /// When background is disabled
+    Background(bool),
     Object(usize), // object number
 }
 
 #[derive(Clone, Copy)]
-struct Pixel {
+pub struct Pixel {
     color_ref: u8, // should be u2
     pixel_source: PixelSource,
 }
@@ -188,7 +189,7 @@ impl Tile {
     }
 }
 
-trait FIFO {
+pub trait FIFO {
     fn next_line(&mut self, memory: &Memory);
     fn pop(&mut self, memory: &Memory) -> Pixel;
 }
@@ -196,6 +197,7 @@ trait FIFO {
 struct BgFIFO {
     fifo: VecDeque<Pixel>,
     initialized: bool,
+    lcdc: Byte,
 
     screen_pos: PixelPos,
     in_window: bool,
@@ -208,6 +210,7 @@ impl BgFIFO {
         Self {
             fifo: VecDeque::new(),
             screen_pos,
+            lcdc: 0,
             initialized: false,
             in_window: false,
             tile_cache: HashMap::new(),
@@ -232,6 +235,7 @@ impl BgFIFO {
 
     fn fetch(&mut self, memory: &Memory) {
         let lcdc = memory.read_byte(LCDC_ADDRESS);
+        let window_enabled = get_flag(lcdc, BGW_ENABLE_FLAG);
 
         while self.fifo.len() < 8 {
             let (fx, fy, map_address) = if !self.in_window {
@@ -275,7 +279,11 @@ impl BgFIFO {
                     res as Address
                 };
 
-                let tile = Tile::fetch_tile(memory, PixelSource::Background, tile_start_address);
+                let tile = Tile::fetch_tile(
+                    memory,
+                    PixelSource::Background(window_enabled),
+                    tile_start_address,
+                );
                 self.tile_cache.insert(tile_pos, tile);
                 self.tile_cache.get(&tile_pos).unwrap()
             };
@@ -283,6 +291,11 @@ impl BgFIFO {
             let (tx, ty) = (fp.x % 8, fp.y % 8);
             let tile_line = tile.get_range(tx..8, ty);
             self.fifo.extend(tile_line);
+
+            // if last line, clear cache
+            if ty == 7 {
+                self.tile_cache.remove(&tile_pos);
+            }
         }
     }
 }
@@ -298,6 +311,7 @@ impl FIFO for BgFIFO {
         };
         self.in_window = Self::in_window(self.screen_pos, memory);
         self.fifo.clear();
+        self.lcdc = Graphics::get_lcdc(memory);
 
         self.fetch(memory);
     }
@@ -337,7 +351,7 @@ impl Object {
 
 pub struct ObjFIFO {
     fifo: VecDeque<Pixel>,
-    /// objects that intersect the current line
+    lcdc: Byte,
     initialized: bool,
     screen_y: usize,
     obj_attr: HashMap<usize, Object>,
@@ -347,6 +361,7 @@ impl ObjFIFO {
     fn new() -> Self {
         Self {
             fifo: VecDeque::new(),
+            lcdc: 0,
             screen_y: 0,
             initialized: false,
             obj_attr: HashMap::new(),
@@ -375,12 +390,11 @@ impl FIFO for ObjFIFO {
         };
         self.fifo.clear();
         self.obj_attr.clear();
+        self.lcdc = Graphics::get_lcdc(memory);
 
         let mut line_pixels = [Pixel::new(0, PixelSource::Object(0)); SCREEN_WIDTH];
 
-        let lcdc = Graphics::get_lcdc(memory);
-
-        if get_flag(lcdc, OBJ_ENABLE_FLAG) {
+        if get_flag(self.lcdc, OBJ_ENABLE_FLAG) {
             // find all intersections
             for obj_idx in 0..OBJ_COUNT {
                 let obj_address = OAM_ADDRESS + 4 * (obj_idx as Address);
@@ -393,7 +407,7 @@ impl FIFO for ObjFIFO {
                 // TODO: modify for 16x8 objects
                 if y_pos <= self.screen_y + 16
                     && self.screen_y + 8 < y_pos
-                    && (x_pos < 8 || x_pos + 8 < SCREEN_WIDTH)
+                    && !(x_pos == 0 || x_pos >= 168)
                 {
                     let tile_start_address = OBJ_TILE_ADDRESS + BYTES_PER_TILE * tile_number;
                     let mut tile =
@@ -410,7 +424,7 @@ impl FIFO for ObjFIFO {
                     let xrange = if x_pos < 8 {
                         8 - x_pos..8
                     } else if x_pos > SCREEN_WIDTH {
-                        0..8 + SCREEN_WIDTH - x_pos
+                        0..(8 + SCREEN_WIDTH) - x_pos
                     } else {
                         0..8
                     };
@@ -638,7 +652,15 @@ impl Graphics {
 
     fn pixel_to_color(&self, pixel: Pixel, memory: &mut Memory) -> Color {
         let palette = match pixel.pixel_source {
-            PixelSource::Background => memory.read_byte(BG_PALETTE_ADDRESS),
+            PixelSource::Background(b) => {
+                let palette = memory.read_byte(BG_PALETTE_ADDRESS);
+                if b {
+                    palette
+                } else {
+                    // background is diabled, just use black
+                    0xFF
+                }
+            }
             PixelSource::Object(o) => {
                 let obj_flag = self.obj_fifo.get_obj_attr(o).flag;
                 let palette = if get_flag(obj_flag, OBJ_PALETTE_FLAG) {
@@ -662,25 +684,6 @@ impl Graphics {
             0 => WHITE,
             1 => LIGHT_GREY,
             2 => DARK_GREY,
-            3 => BLACK,
-            _ => panic!(),
-        }
-    }
-
-    fn bgcolor_ref_to_color(color_ref: Byte, memory: &mut Memory) -> Color {
-        assert!(color_ref <= 3);
-        let palette = memory.read_byte(BG_PALETTE_ADDRESS);
-        let color_idx = match color_ref {
-            0 => palette & 0b11,
-            1 => (palette >> 2) & 0b11,
-            2 => (palette >> 4) & 0b11,
-            3 => (palette >> 6) & 0b11,
-            _ => panic!(),
-        };
-        match color_idx {
-            0 => WHITE,
-            1 => BLACK,
-            2 => BLACK,
             3 => BLACK,
             _ => panic!(),
         }
@@ -741,10 +744,12 @@ impl Graphics {
     // Mixes Background pixel with Object Pixel
     fn mix(&self, bgp: Pixel, obp: Pixel) -> Pixel {
         match (bgp.pixel_source, obp.pixel_source) {
-            (PixelSource::Background, PixelSource::Object(o)) => {
+            (PixelSource::Background(b), PixelSource::Object(o)) => {
                 if obp.color_ref == 0 {
                     // transparent
                     bgp
+                } else if !b {
+                    obp
                 } else {
                     let obj_attr = self.obj_fifo.get_obj_attr(o);
                     if get_flag(obj_attr.flag, OBJ_PRIORITY_FLAG) && bgp.color_ref >= 1 {
