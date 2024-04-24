@@ -146,10 +146,6 @@ impl fmt::Debug for Tile {
 }
 
 impl Tile {
-    pub fn get_pixel(&self, x: usize, y: usize) -> Pixel {
-        self.tile[y][x]
-    }
-
     pub fn fetch_tile(memory: &Memory, pixel_source: PixelSource, address: Address) -> Self {
         let default_tile = Pixel {
             color_ref: 0,
@@ -179,6 +175,16 @@ impl Tile {
 
     pub fn get_range(&self, x: Range<usize>, y: usize) -> &[Pixel] {
         &self.tile[y][x]
+    }
+
+    pub fn flip_x(&mut self) {
+        for row in self.tile.iter_mut() {
+            row.reverse();
+        }
+    }
+
+    pub fn flip_y(&mut self) {
+        self.tile.reverse();
     }
 }
 
@@ -380,8 +386,15 @@ impl FIFO for ObjFIFO {
                     && (x_pos < 8 || x_pos + 8 < SCREEN_WIDTH)
                 {
                     let tile_start_address = OBJ_TILE_ADDRESS + BYTES_PER_TILE * tile_number;
-                    let tile =
+                    let mut tile =
                         Tile::fetch_tile(memory, PixelSource::Object(obj_idx), tile_start_address);
+
+                    if get_flag(flag, OBJ_XFLIP_FLAG) {
+                        tile.flip_x();
+                    }
+                    if get_flag(flag, OBJ_YFLIP_FLAG) {
+                        tile.flip_y();
+                    }
 
                     let y = self.screen_y + 16 - y_pos;
                     let xrange = if x_pos < 8 {
