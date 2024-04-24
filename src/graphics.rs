@@ -101,7 +101,7 @@ struct PixelPos {
     y: usize,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct TilePos {
     i: usize,
     j: usize,
@@ -199,6 +199,7 @@ struct BgFIFO {
 
     screen_pos: PixelPos,
     in_window: bool,
+    tile_cache: HashMap<TilePos, Tile>,
 }
 
 impl BgFIFO {
@@ -209,6 +210,7 @@ impl BgFIFO {
             screen_pos,
             initialized: false,
             in_window: false,
+            tile_cache: HashMap::new(),
         }
     }
     fn get_scroll(memory: &Memory) -> (usize, usize) {
@@ -259,17 +261,25 @@ impl BgFIFO {
             };
             let fp = PixelPos { x: fx, y: fy };
             let tile_pos = fp.to_tile();
-            let tile_idx = tile_pos.i + tile_pos.j * 32;
-            let tile_num_address = map_address + (tile_idx as Address);
-            let tile_num = memory.read_byte(tile_num_address);
-            let tile_start_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
-                0x8000 + BYTES_PER_TILE * (tile_num as Address)
+
+            let tile = if let Some(t) = self.tile_cache.get(&tile_pos) {
+                t
             } else {
-                let res = 0x9000 + (BYTES_PER_TILE as i32) * ((tile_num as i8) as i32);
-                res as Address
+                let tile_idx = tile_pos.i + tile_pos.j * 32;
+                let tile_num_address = map_address + (tile_idx as Address);
+                let tile_num = memory.read_byte(tile_num_address);
+                let tile_start_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
+                    0x8000 + BYTES_PER_TILE * (tile_num as Address)
+                } else {
+                    let res = 0x9000 + (BYTES_PER_TILE as i32) * ((tile_num as i8) as i32);
+                    res as Address
+                };
+
+                let tile = Tile::fetch_tile(memory, PixelSource::Background, tile_start_address);
+                self.tile_cache.insert(tile_pos, tile);
+                self.tile_cache.get(&tile_pos).unwrap()
             };
 
-            let tile = Tile::fetch_tile(memory, PixelSource::Background, tile_start_address);
             let (tx, ty) = (fp.x % 8, fp.y % 8);
             let tile_line = tile.get_range(tx..8, ty);
             self.fifo.extend(tile_line);
