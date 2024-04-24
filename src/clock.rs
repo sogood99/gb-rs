@@ -1,5 +1,5 @@
 use crate::{
-    cpu::CPU,
+    cpu::{CPU, INTERRUPT_FLAG_ADDRESS, TIMER_FLAG},
     memory::Memory,
     utils::{get_flag, set_flag},
     utils::{Address, Byte},
@@ -56,9 +56,9 @@ impl Clock {
 
                 if memory.read_byte(Self::TIMA_ADDRESS) == 0 {
                     // set timer interrupt and reset timer
-                    let mut interrupt_flags = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
-                    set_flag(&mut interrupt_flags, CPU::TIMER_FLAG);
-                    memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, interrupt_flags);
+                    let mut interrupt_flags = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
+                    set_flag(&mut interrupt_flags, TIMER_FLAG);
+                    memory.write_byte(INTERRUPT_FLAG_ADDRESS, interrupt_flags);
 
                     let tma = memory.read_byte(Self::TMA_ADDRESS);
                     memory.write_byte(Self::TIMA_ADDRESS, tma);

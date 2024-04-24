@@ -1562,8 +1562,8 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.sp, 0xffff);
-        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CARRY_FLAG), false);
     }
 
     #[test]
@@ -1579,8 +1579,8 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.sp, 0xe);
-        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(HALF_CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(CARRY_FLAG), true);
     }
 
     #[test]
@@ -1596,10 +1596,10 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xfe);
-        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::SUBTRACT_FLAG), false);
+        assert_eq!(cpu.get_flag(ZERO_FLAG), false);
+        assert_eq!(cpu.get_flag(HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(SUBTRACT_FLAG), false);
     }
 
     #[test]
@@ -1615,10 +1615,10 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0);
-        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), false);
-        assert_eq!(cpu.get_flag(CPU::SUBTRACT_FLAG), false);
+        assert_eq!(cpu.get_flag(ZERO_FLAG), true);
+        assert_eq!(cpu.get_flag(HALF_CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(CARRY_FLAG), false);
+        assert_eq!(cpu.get_flag(SUBTRACT_FLAG), false);
     }
 
     #[test]
@@ -1634,9 +1634,9 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.get_hl(), 0);
-        assert_eq!(cpu.get_flag(CPU::HALF_CARRY_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::CARRY_FLAG), true);
-        assert_eq!(cpu.get_flag(CPU::ZERO_FLAG), false);
+        assert_eq!(cpu.get_flag(HALF_CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(CARRY_FLAG), true);
+        assert_eq!(cpu.get_flag(ZERO_FLAG), false);
     }
 
     #[test]

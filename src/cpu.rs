@@ -1,10 +1,26 @@
 use log::{debug, info};
+use sdl2::keyboard::Keycode;
 
 use crate::{
     clock::Clock,
     memory::Memory,
     utils::{bytes2word, get_flag, reset_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
+
+// ----- flags -----
+pub const ZERO_FLAG: Byte = 0b10000000;
+pub const SUBTRACT_FLAG: Byte = 0b01000000;
+pub const HALF_CARRY_FLAG: Byte = 0b00100000;
+pub const CARRY_FLAG: Byte = 0b00010000;
+
+// ----- memory flag -----
+pub const INTERRUPT_FLAG_ADDRESS: Address = 0xFF0F;
+pub const INTERRUPT_ENABLE_ADDRESS: Address = 0xFFFF;
+pub const VBLANK_FLAG: Byte = 0b1;
+pub const LCD_FLAG: Byte = 0b10;
+pub const TIMER_FLAG: Byte = 0b100;
+pub const SERIAL_FLAG: Byte = 0b1000;
+pub const JOYPAD_FLAG: Byte = 0b10000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Register {
@@ -778,21 +794,6 @@ pub struct CPU {
 }
 
 impl CPU {
-    // ----- flags -----
-    pub const ZERO_FLAG: Byte = 0b10000000;
-    pub const SUBTRACT_FLAG: Byte = 0b01000000;
-    pub const HALF_CARRY_FLAG: Byte = 0b00100000;
-    pub const CARRY_FLAG: Byte = 0b00010000;
-
-    // ----- memory flag -----
-    pub const INTERRUPT_FLAG_ADDRESS: Address = 0xFF0F;
-    pub const INTERRUPT_ENABLE_ADDRESS: Address = 0xFFFF;
-    pub const VBLANK_FLAG: Byte = 0b1;
-    pub const LCD_FLAG: Byte = 0b10;
-    pub const TIMER_FLAG: Byte = 0b100;
-    pub const SERIAL_FLAG: Byte = 0b1000;
-    pub const JOYPAD_FLAG: Byte = 0b10000;
-
     pub fn new() -> Self {
         Self {
             a: 0x00,
@@ -851,11 +852,11 @@ impl CPU {
                 // Update flags
                 self.zero_flag(result);
                 self.half_carry_flag_add(self.a, reg_val);
-                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
 
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -865,10 +866,10 @@ impl CPU {
                 let (result, overflow) = self.a.overflowing_add(n);
                 self.zero_flag(result);
                 self.half_carry_flag_add(self.a, n);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -879,10 +880,10 @@ impl CPU {
                 let (result, overflow) = self.a.overflowing_add(value);
                 self.zero_flag(result);
                 self.half_carry_flag_add(self.a, value);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -894,10 +895,10 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, reg_val);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -908,10 +909,10 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, n);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -923,10 +924,10 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, val);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = result;
                 self.pc += instruction.size;
@@ -936,9 +937,9 @@ impl CPU {
                 let result = self.a & self.get_register(r);
                 self.a = result;
                 self.zero_flag(result);
-                self.set_flag(Self::HALF_CARRY_FLAG);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
@@ -946,9 +947,9 @@ impl CPU {
                 let result = self.a & n;
                 self.a = result;
                 self.zero_flag(result);
-                self.set_flag(Self::HALF_CARRY_FLAG);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
@@ -956,9 +957,9 @@ impl CPU {
                 let result = self.a & memory.read_byte(self.get_hl());
                 self.a = result;
                 self.zero_flag(result);
-                self.set_flag(Self::HALF_CARRY_FLAG);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
@@ -1020,10 +1021,10 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, reg_val);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.pc += instruction.size;
                 clock.tick(1, memory);
@@ -1035,10 +1036,10 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, val);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.pc += instruction.size;
                 clock.tick(2, memory);
@@ -1048,42 +1049,42 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(self.a, n);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
             Instruction::ADC_R(r) => {
                 let reg_val = self.get_register(r);
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_add(reg_val);
                 let (res2, ovf2) = res1.overflowing_add(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_adc(self.a, reg_val, cf);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::ADC_N(n) => {
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_add(n);
                 let (res2, ovf2) = res1.overflowing_add(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_adc(self.a, n, cf);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
@@ -1091,16 +1092,16 @@ impl CPU {
             }
             Instruction::ADC_HL => {
                 let val = memory.read_byte(self.get_hl());
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_add(val);
                 let (res2, ovf2) = res1.overflowing_add(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_adc(self.a, val, cf);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
@@ -1108,32 +1109,32 @@ impl CPU {
             }
             Instruction::SBC_R(r) => {
                 let reg_val = self.get_register(r);
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_sub(reg_val);
                 let (res2, ovf2) = res1.overflowing_sub(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_sbc(self.a, reg_val, cf);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::SBC_N(n) => {
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_sub(n);
                 let (res2, ovf2) = res1.overflowing_sub(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_sbc(self.a, n, cf);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
@@ -1141,16 +1142,16 @@ impl CPU {
             }
             Instruction::SBC_HL => {
                 let val = memory.read_byte(self.get_hl());
-                let cf = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let cf = self.get_flag(CARRY_FLAG) as Byte;
                 let (res1, ovf1) = self.a.overflowing_sub(val);
                 let (res2, ovf2) = res1.overflowing_sub(cf);
                 let overflow = ovf1 || ovf2;
                 self.zero_flag(res2);
                 self.half_carry_flag_sbc(self.a, val, cf);
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.a = res2;
                 self.pc += instruction.size;
@@ -1216,10 +1217,10 @@ impl CPU {
                 let result = self.sp.wrapping_add_signed(e.into());
                 self.reset_all_flags();
                 if (self.sp & 0xF) + (e_u16 & 0xF) > 0xF {
-                    self.set_flag(Self::HALF_CARRY_FLAG);
+                    self.set_flag(HALF_CARRY_FLAG);
                 }
                 if (self.sp & 0xFF) + (e_u16 & 0xFF) > 0xFF {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_hl(result);
                 self.pc += instruction.size;
@@ -1312,7 +1313,7 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_add(reg_val, 1);
-                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
 
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1324,7 +1325,7 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_add(val, 1);
-                self.reset_flag(Self::SUBTRACT_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
 
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1337,7 +1338,7 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(reg_val, 1);
-                self.set_flag(Self::SUBTRACT_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
 
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1350,7 +1351,7 @@ impl CPU {
 
                 self.zero_flag(result);
                 self.half_carry_flag_sub(val, 1);
-                self.set_flag(Self::SUBTRACT_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
                 clock.tick(1, memory);
                 memory.write_byte(address, result);
                 clock.tick(2, memory);
@@ -1375,10 +1376,10 @@ impl CPU {
                 let (result, overflow) = self.get_hl().overflowing_add(reg_val);
 
                 self.half_carry_flag_add16(self.get_hl(), reg_val);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(CARRY_FLAG);
                 if overflow {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_hl(result);
                 self.pc += instruction.size;
@@ -1416,8 +1417,8 @@ impl CPU {
             }
             Instruction::BIT(b, r) => {
                 let result = (self.get_register(r) & (1 << b)) >> b;
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
                 self.zero_flag(result);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
@@ -1425,47 +1426,47 @@ impl CPU {
             Instruction::BIT_HL(b) => {
                 clock.tick(1, memory);
                 let result = (memory.read_byte(self.get_hl()) & (1 << b)) >> b;
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
                 self.zero_flag(result);
                 self.pc += instruction.size;
                 clock.tick(2, memory);
             }
             Instruction::CPL => {
                 self.a = !self.a;
-                self.set_flag(Self::SUBTRACT_FLAG);
-                self.set_flag(Self::HALF_CARRY_FLAG);
+                self.set_flag(SUBTRACT_FLAG);
+                self.set_flag(HALF_CARRY_FLAG);
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::SCF => {
-                self.set_flag(Self::CARRY_FLAG);
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::HALF_CARRY_FLAG);
+                self.set_flag(CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(HALF_CARRY_FLAG);
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::CCF => {
-                self.reset_flag(Self::SUBTRACT_FLAG);
-                self.reset_flag(Self::HALF_CARRY_FLAG);
-                if self.get_flag(Self::CARRY_FLAG) {
-                    self.reset_flag(Self::CARRY_FLAG);
+                self.reset_flag(SUBTRACT_FLAG);
+                self.reset_flag(HALF_CARRY_FLAG);
+                if self.get_flag(CARRY_FLAG) {
+                    self.reset_flag(CARRY_FLAG);
                 } else {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.pc += instruction.size;
                 clock.tick(1, memory);
             }
             Instruction::DAA => {
                 // turn a into decimal form, follows the official implementation
-                let half_carry = self.get_flag(Self::HALF_CARRY_FLAG);
-                let carry = self.get_flag(Self::CARRY_FLAG);
-                let sub_flag = self.get_flag(Self::SUBTRACT_FLAG);
+                let half_carry = self.get_flag(HALF_CARRY_FLAG);
+                let carry = self.get_flag(CARRY_FLAG);
+                let sub_flag = self.get_flag(SUBTRACT_FLAG);
 
                 if !sub_flag {
                     if carry || self.a > 0x99 {
                         self.a = self.a.wrapping_add(0x60);
-                        self.set_flag(Self::CARRY_FLAG);
+                        self.set_flag(CARRY_FLAG);
                     }
                     if half_carry || (self.a & 0xF) > 0x9 {
                         self.a = self.a.wrapping_add(0x6);
@@ -1478,7 +1479,7 @@ impl CPU {
                         self.a = self.a.wrapping_sub(0x6);
                     }
                 }
-                self.reset_flag(Self::HALF_CARRY_FLAG);
+                self.reset_flag(HALF_CARRY_FLAG);
                 self.zero_flag(self.a);
                 self.pc += instruction.size;
                 clock.tick(1, memory);
@@ -1520,10 +1521,10 @@ impl CPU {
                 let result = self.sp.wrapping_add_signed(e.into());
                 self.reset_all_flags();
                 if (self.sp & 0xF) + (e_u16 & 0xF) > 0xF {
-                    self.set_flag(Self::HALF_CARRY_FLAG);
+                    self.set_flag(HALF_CARRY_FLAG);
                 }
                 if (self.sp & 0xFF) + (e_u16 & 0xFF) > 0xFF {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.sp = result;
                 self.pc += instruction.size;
@@ -1585,12 +1586,12 @@ impl CPU {
             }
             Instruction::RL(r) => {
                 let reg_val = self.get_register(r);
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (reg_val << 1) | old_carry;
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if reg_val & (1 << 7) != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1599,12 +1600,12 @@ impl CPU {
             Instruction::RL_HL => {
                 clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl());
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (val << 1) | old_carry;
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if val & (1 << 7) != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1618,7 +1619,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r7 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1632,7 +1633,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r7 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1642,11 +1643,11 @@ impl CPU {
             Instruction::RLA => {
                 let r = Register::A;
                 let reg_val = self.get_register(r);
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (reg_val << 1) | old_carry;
                 self.reset_all_flags();
                 if reg_val & (1 << 7) != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1659,7 +1660,7 @@ impl CPU {
                 let result = (reg_val << 1) | r7;
                 self.reset_all_flags();
                 if r7 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1667,12 +1668,12 @@ impl CPU {
             }
             Instruction::RR(r) => {
                 let reg_val = self.get_register(r);
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (reg_val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if reg_val & 1 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1681,12 +1682,12 @@ impl CPU {
             Instruction::RR_HL => {
                 clock.tick(1, memory);
                 let val = memory.read_byte(self.get_hl());
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if val & 1 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1700,7 +1701,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r0 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1714,7 +1715,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r0 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1724,11 +1725,11 @@ impl CPU {
             Instruction::RRA => {
                 let r = Register::A;
                 let reg_val = self.get_register(r);
-                let old_carry = self.get_flag(Self::CARRY_FLAG) as Byte;
+                let old_carry = self.get_flag(CARRY_FLAG) as Byte;
                 let result = (reg_val >> 1) | (old_carry << 7);
                 self.reset_all_flags();
                 if reg_val & 1 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1741,7 +1742,7 @@ impl CPU {
                 let result = (reg_val >> 1) | (r0 << 7);
                 self.reset_all_flags();
                 if r0 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1754,7 +1755,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r7 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1768,7 +1769,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r7 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1783,7 +1784,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r0 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1798,7 +1799,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if r0 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1811,7 +1812,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if reg_val & 1 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 self.set_register(r, result);
                 self.pc += instruction.size;
@@ -1824,7 +1825,7 @@ impl CPU {
                 self.reset_all_flags();
                 self.zero_flag(result);
                 if val & 1 != 0 {
-                    self.set_flag(Self::CARRY_FLAG);
+                    self.set_flag(CARRY_FLAG);
                 }
                 clock.tick(1, memory);
                 memory.write_byte(self.get_hl(), result);
@@ -1887,8 +1888,8 @@ impl CPU {
     }
 
     pub fn handle_interrupts(&mut self, memory: &mut Memory) {
-        let interrupt_enable = memory.read_byte(Self::INTERRUPT_ENABLE_ADDRESS);
-        let interrupt_flag = memory.read_byte(Self::INTERRUPT_FLAG_ADDRESS);
+        let interrupt_enable = memory.read_byte(INTERRUPT_ENABLE_ADDRESS);
+        let interrupt_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
         let mut flag_bytes = interrupt_enable & interrupt_flag;
 
         // handle halt
@@ -1902,29 +1903,37 @@ impl CPU {
         if flag_bytes != 0 {
             self.ime_disable();
             self.push_pc_stack(memory);
-            if get_flag(flag_bytes, Self::VBLANK_FLAG) {
+            if get_flag(flag_bytes, VBLANK_FLAG) {
                 debug!("VBLANK Interrupt");
-                reset_flag(&mut flag_bytes, Self::VBLANK_FLAG);
+                reset_flag(&mut flag_bytes, VBLANK_FLAG);
                 self.pc = 0x40;
-            } else if get_flag(flag_bytes, Self::LCD_FLAG) {
+            } else if get_flag(flag_bytes, LCD_FLAG) {
                 debug!("LCD Interrupt");
-                reset_flag(&mut flag_bytes, Self::LCD_FLAG);
+                reset_flag(&mut flag_bytes, LCD_FLAG);
                 self.pc = 0x48;
-            } else if get_flag(flag_bytes, Self::TIMER_FLAG) {
+            } else if get_flag(flag_bytes, TIMER_FLAG) {
                 debug!("TIMER Interrupt");
-                reset_flag(&mut flag_bytes, Self::TIMER_FLAG);
+                reset_flag(&mut flag_bytes, TIMER_FLAG);
                 self.pc = 0x50;
-            } else if get_flag(flag_bytes, Self::SERIAL_FLAG) {
+            } else if get_flag(flag_bytes, SERIAL_FLAG) {
                 debug!("SERIAL Interrupt");
-                reset_flag(&mut flag_bytes, Self::SERIAL_FLAG);
+                reset_flag(&mut flag_bytes, SERIAL_FLAG);
                 self.pc = 0x58;
-            } else if get_flag(flag_bytes, Self::JOYPAD_FLAG) {
+            } else if get_flag(flag_bytes, JOYPAD_FLAG) {
                 debug!("JOYPAD Interrupt");
-                reset_flag(&mut flag_bytes, Self::JOYPAD_FLAG);
+                reset_flag(&mut flag_bytes, JOYPAD_FLAG);
                 self.pc = 0x60;
             }
         }
-        memory.write_byte(Self::INTERRUPT_FLAG_ADDRESS, flag_bytes);
+        memory.write_byte(INTERRUPT_FLAG_ADDRESS, flag_bytes);
+    }
+
+    /// Handle button press
+    pub fn handle_button(&mut self, keycode: Keycode) {
+        match keycode {
+            Keycode::A => {}
+            _ => {}
+        }
     }
 
     pub fn get_hl(&self) -> Word {
@@ -1955,46 +1964,46 @@ impl CPU {
     }
 
     fn zero_flag(&mut self, result: Byte) {
-        self.reset_flag(Self::ZERO_FLAG);
+        self.reset_flag(ZERO_FLAG);
         if result == 0 {
-            self.set_flag(Self::ZERO_FLAG);
+            self.set_flag(ZERO_FLAG);
         }
     }
 
     fn half_carry_flag_add(&mut self, b1: Byte, b2: Byte) {
-        self.reset_flag(Self::HALF_CARRY_FLAG);
+        self.reset_flag(HALF_CARRY_FLAG);
         if (b1 & 0xF) + (b2 & 0xF) > 0x0F {
-            self.set_flag(Self::HALF_CARRY_FLAG);
+            self.set_flag(HALF_CARRY_FLAG);
         }
     }
 
     fn half_carry_flag_add16(&mut self, w1: Word, w2: Word) {
-        self.reset_flag(Self::HALF_CARRY_FLAG);
+        self.reset_flag(HALF_CARRY_FLAG);
         if (w1 & 0xFFF) + (w2 & 0xFFF) > 0xFFF {
-            self.set_flag(Self::HALF_CARRY_FLAG);
+            self.set_flag(HALF_CARRY_FLAG);
         }
     }
 
     fn half_carry_flag_adc(&mut self, b1: Byte, b2: Byte, cf: Byte) {
         assert!(cf <= 1);
-        self.reset_flag(Self::HALF_CARRY_FLAG);
+        self.reset_flag(HALF_CARRY_FLAG);
         if (b1 & 0xF) + (b2 & 0xF) + cf > 0x0F {
-            self.set_flag(Self::HALF_CARRY_FLAG);
+            self.set_flag(HALF_CARRY_FLAG);
         }
     }
 
     fn half_carry_flag_sub(&mut self, b1: Byte, b2: Byte) {
-        self.reset_flag(Self::HALF_CARRY_FLAG);
+        self.reset_flag(HALF_CARRY_FLAG);
         if (b1 & 0x0F) < (b2 & 0x0F) {
-            self.set_flag(Self::HALF_CARRY_FLAG);
+            self.set_flag(HALF_CARRY_FLAG);
         }
     }
 
     fn half_carry_flag_sbc(&mut self, b1: Byte, b2: Byte, cf: Byte) {
         assert!(cf <= 1);
-        self.reset_flag(Self::HALF_CARRY_FLAG);
+        self.reset_flag(HALF_CARRY_FLAG);
         if (b1 & 0x0F) < (b2 & 0x0F) + cf {
-            self.set_flag(Self::HALF_CARRY_FLAG);
+            self.set_flag(HALF_CARRY_FLAG);
         }
     }
 
@@ -2059,10 +2068,10 @@ impl CPU {
 
     fn get_condition(&self, cc: Condition) -> bool {
         match cc {
-            Condition::NonZero => !self.get_flag(Self::ZERO_FLAG),
-            Condition::Zero => self.get_flag(Self::ZERO_FLAG),
-            Condition::NotCarry => !self.get_flag(Self::CARRY_FLAG),
-            Condition::Carry => self.get_flag(Self::CARRY_FLAG),
+            Condition::NonZero => !self.get_flag(ZERO_FLAG),
+            Condition::Zero => self.get_flag(ZERO_FLAG),
+            Condition::NotCarry => !self.get_flag(CARRY_FLAG),
+            Condition::Carry => self.get_flag(CARRY_FLAG),
         }
     }
 
@@ -2156,26 +2165,18 @@ impl CPU {
     fn display_flags(&self) -> String {
         format!(
             "{}{}{}{}",
-            if self.get_flag(Self::CARRY_FLAG) {
-                "C"
-            } else {
-                "-"
-            },
-            if self.get_flag(Self::HALF_CARRY_FLAG) {
+            if self.get_flag(CARRY_FLAG) { "C" } else { "-" },
+            if self.get_flag(HALF_CARRY_FLAG) {
                 "H"
             } else {
                 "-"
             },
-            if self.get_flag(Self::SUBTRACT_FLAG) {
+            if self.get_flag(SUBTRACT_FLAG) {
                 "N"
             } else {
                 "-"
             },
-            if self.get_flag(Self::ZERO_FLAG) {
-                "Z"
-            } else {
-                "-"
-            },
+            if self.get_flag(ZERO_FLAG) { "Z" } else { "-" },
         )
     }
 }

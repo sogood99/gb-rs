@@ -109,7 +109,7 @@ impl GameBoy {
     }
 
     pub fn run(mut self) {
-        // self.dbg.add_breakpoint(Breakpoint::Addr(0x3294));
+        // self.dbg.add_breakpoint(Breakpoint::Addr(0x039e));
         // self.dbg.add_breakpoint(Breakpoint::Inst(Instruction::EI));
 
         // disable all events, enable only ones needed

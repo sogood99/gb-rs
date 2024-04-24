@@ -121,10 +121,6 @@ impl Memory {
             _ => (),
         }
 
-        if address >= 0xFE00 && address <= 0xFE9F {
-            println!("{} {}", address2string(address), byte);
-        }
-
         let address = address as usize;
 
         let ctype = self.get_cartridge_type();

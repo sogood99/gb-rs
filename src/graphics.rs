@@ -12,11 +12,9 @@ use sdl2::{
 use std::fmt;
 
 use crate::{
-    cpu::CPU,
+    cpu::{INTERRUPT_FLAG_ADDRESS, LCD_FLAG, VBLANK_FLAG},
     memory::Memory,
-    utils::{
-        address2string, byte2stringbit, get_flag, set_flag, set_flag_ref, Address, Byte, Word,
-    },
+    utils::{get_flag, set_flag, set_flag_ref, Address, Byte, Word},
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -671,20 +669,20 @@ impl Graphics {
         let new_stat_flag = stat_flag | ppu_mode.to_num();
 
         // interrupt
-        let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
+        let mut int_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
         match ppu_mode {
             PPUMode::Mode0(_) if get_flag(stat_flag, MODE0_INT_FLAG) => {
-                set_flag(&mut int_flag, CPU::LCD_FLAG);
+                set_flag(&mut int_flag, LCD_FLAG);
             }
             PPUMode::Mode1(_) if get_flag(stat_flag, MODE1_INT_FLAG) => {
-                set_flag(&mut int_flag, CPU::LCD_FLAG);
+                set_flag(&mut int_flag, LCD_FLAG);
             }
             PPUMode::Mode2(_) if get_flag(stat_flag, MODE2_INT_FLAG) => {
-                set_flag(&mut int_flag, CPU::LCD_FLAG);
+                set_flag(&mut int_flag, LCD_FLAG);
             }
             _ => (),
         }
-        memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+        memory.write_byte(INTERRUPT_FLAG_ADDRESS, int_flag);
         memory.write_byte(LCD_STATUS_ADDRESS, new_stat_flag);
     }
 
@@ -699,18 +697,18 @@ impl Graphics {
             memory.write_byte(LCD_STATUS_ADDRESS, new_stat_flag);
 
             if get_flag(stat_flag, LCY_INT_FLAG) {
-                let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
-                set_flag(&mut int_flag, CPU::LCD_FLAG);
-                memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+                let mut int_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
+                set_flag(&mut int_flag, LCD_FLAG);
+                memory.write_byte(INTERRUPT_FLAG_ADDRESS, int_flag);
             }
         }
     }
 
     /// Set the vblank interrupt
     fn set_vblank_int(&self, memory: &mut Memory) {
-        let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
-        set_flag(&mut int_flag, CPU::VBLANK_FLAG);
-        memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+        let mut int_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
+        set_flag(&mut int_flag, VBLANK_FLAG);
+        memory.write_byte(INTERRUPT_FLAG_ADDRESS, int_flag);
     }
 
     fn get_lcdc(memory: &Memory) -> Byte {
