@@ -1,4 +1,7 @@
-use std::{collections::VecDeque, ops::RangeFrom};
+use std::{
+    collections::{HashMap, VecDeque},
+    ops::Range,
+};
 
 use sdl2::{
     pixels::{Color, PixelFormatEnum},
@@ -11,7 +14,9 @@ use std::fmt;
 use crate::{
     cpu::CPU,
     memory::Memory,
-    utils::{get_flag, set_flag, set_flag_ref, Address, Byte, Word},
+    utils::{
+        address2string, byte2stringbit, get_flag, set_flag, set_flag_ref, Address, Byte, Word,
+    },
 };
 
 const BYTES_PER_TILE: Word = 16;
@@ -19,7 +24,7 @@ const SCREEN_WIDTH: usize = 160;
 const SCREEN_HEIGHT: usize = 144;
 const PIXEL_COUNT: usize = SCREEN_WIDTH * SCREEN_HEIGHT;
 
-const OBJ_TILE_ADDRESS: Address = 0x8000;
+pub const OAM_ADDRESS: Address = 0xFE00;
 const SCY_ADDRESS: Address = 0xFF42;
 const SCX_ADDRESS: Address = 0xFF43;
 const WY_ADDRESS: Address = 0xFF4A;
@@ -27,6 +32,7 @@ const WX_ADDRESS: Address = 0xFF4B;
 const LY_ADDRESS: Address = 0xFF44;
 const LYC_ADDRESS: Address = 0xFF45;
 
+// LCDC flags
 const LCDC_ADDRESS: Address = 0xFF40;
 const LCDC_ENABLE_FLAG: Byte = 0b1000_0000;
 const WINDOW_TILE_MAP_FLAG: Byte = 0b0100_0000;
@@ -36,7 +42,18 @@ const BG_TILE_MAP_FLAG: Byte = 0b0000_1000;
 const OBJ_SIZE_FLAG: Byte = 0b0000_0100;
 const OBJ_ENABLE_FLAG: Byte = 0b0000_0010;
 const BGW_ENABLE_FLAG: Byte = 0b0000_0001;
+
 const BG_PALETTE_ADDRESS: Address = 0xFF47;
+const OBP0_ADDRESS: Address = 0xFF48;
+const OBP1_ADDRESS: Address = 0xFF49;
+
+// Object Attribute/Flags
+const OBJ_TILE_ADDRESS: Address = 0x8000;
+const OBJ_COUNT: usize = 40;
+const OBJ_PRIORITY_FLAG: Byte = 0b1000_0000;
+const OBJ_YFLIP_FLAG: Byte = 0b0100_0000;
+const OBJ_XFLIP_FLAG: Byte = 0b0010_0000;
+const OBJ_PALETTE_FLAG: Byte = 0b0001_0000;
 
 const LCD_STATUS_ADDRESS: Address = 0xFF41;
 const LCY_INT_FLAG: Byte = 0b0100_0000;
@@ -52,16 +69,25 @@ const DARK_GREY: Color = Color::RGB(48, 48, 48);
 const LIGHT_GREY: Color = Color::RGB(139, 139, 139);
 const WHITE: Color = Color::RGB(255, 255, 255);
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 enum PixelSource {
     Background,
-    Object,
+    Object(usize), // object number
 }
 
 #[derive(Clone, Copy)]
 struct Pixel {
     color_ref: u8, // should be u2
     pixel_source: PixelSource,
+}
+
+impl Pixel {
+    fn new(color_ref: u8, pixel_source: PixelSource) -> Self {
+        Self {
+            color_ref,
+            pixel_source,
+        }
+    }
 }
 
 impl fmt::Debug for Pixel {
@@ -122,17 +148,6 @@ impl fmt::Debug for Tile {
 }
 
 impl Tile {
-    fn all_zero(&self) -> bool {
-        for i in 0..8 {
-            for j in 0..8 {
-                if self.tile[i][j].color_ref != 0 {
-                    return false;
-                }
-            }
-        }
-        true
-    }
-
     pub fn get_pixel(&self, x: usize, y: usize) -> Pixel {
         self.tile[y][x]
     }
@@ -164,9 +179,14 @@ impl Tile {
         Self { tile }
     }
 
-    pub fn get_range(&self, x: RangeFrom<usize>, y: usize) -> &[Pixel] {
+    pub fn get_range(&self, x: Range<usize>, y: usize) -> &[Pixel] {
         &self.tile[y][x]
     }
+}
+
+trait FIFO {
+    fn next_line(&mut self, memory: &Memory);
+    fn pop(&mut self, memory: &Memory) -> Pixel;
 }
 
 struct BgFIFO {
@@ -204,30 +224,6 @@ impl BgFIFO {
         window_enable && p.x + 7 >= wx && p.y >= wy
     }
 
-    // must call before using
-    fn next_line(&mut self, memory: &Memory) {
-        self.screen_pos = if self.initialized {
-            self.screen_pos.next_line()
-        } else {
-            self.initialized = true;
-            self.screen_pos
-        };
-        self.in_window = Self::in_window(self.screen_pos, memory);
-        self.fifo.clear();
-
-        self.fetch(memory);
-    }
-    fn pop(&mut self, memory: &Memory) -> Pixel {
-        if !self.in_window && Self::in_window(self.screen_pos, memory) {
-            self.in_window = true;
-            self.fifo.clear();
-            self.fetch(memory);
-        }
-        let p = self.fifo.pop_front().unwrap();
-        self.screen_pos.x += 1;
-        self.fetch(memory);
-        p
-    }
     fn fetch(&mut self, memory: &Memory) {
         let lcdc = memory.read_byte(LCDC_ADDRESS);
 
@@ -271,13 +267,159 @@ impl BgFIFO {
 
             let tile = Tile::fetch_tile(memory, PixelSource::Background, tile_start_address);
             let (tx, ty) = (fp.x % 8, fp.y % 8);
-            let tile_line = tile.get_range(tx.., ty);
+            let tile_line = tile.get_range(tx..8, ty);
             self.fifo.extend(tile_line);
         }
     }
 }
 
-pub struct ObjFIFO {}
+impl FIFO for BgFIFO {
+    // must call before using
+    fn next_line(&mut self, memory: &Memory) {
+        self.screen_pos = if self.initialized {
+            self.screen_pos.next_line()
+        } else {
+            self.initialized = true;
+            self.screen_pos
+        };
+        self.in_window = Self::in_window(self.screen_pos, memory);
+        self.fifo.clear();
+
+        self.fetch(memory);
+    }
+    fn pop(&mut self, memory: &Memory) -> Pixel {
+        if !self.in_window && Self::in_window(self.screen_pos, memory) {
+            self.in_window = true;
+            self.fifo.clear();
+            self.fetch(memory);
+        }
+        let p = self.fifo.pop_front().unwrap();
+        self.screen_pos.x += 1;
+        self.fetch(memory);
+        p
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Object {
+    index: usize,
+    x_pos: usize,
+    y_pos: usize,
+    tile_num: Address,
+    flag: Byte,
+}
+
+impl Object {
+    fn new(index: usize, x_pos: usize, y_pos: usize, tile_num: Address, flag: Byte) -> Self {
+        Self {
+            index,
+            x_pos,
+            y_pos,
+            tile_num,
+            flag,
+        }
+    }
+}
+
+pub struct ObjFIFO {
+    fifo: VecDeque<Pixel>,
+    /// objects that intersect the current line
+    initialized: bool,
+    screen_y: usize,
+    obj_attr: HashMap<usize, Object>,
+}
+
+impl ObjFIFO {
+    fn new() -> Self {
+        Self {
+            fifo: VecDeque::new(),
+            screen_y: 0,
+            initialized: false,
+            obj_attr: HashMap::new(),
+        }
+    }
+    fn merge(p1: Pixel, p2: Pixel) -> Pixel {
+        if p1.color_ref == 0 {
+            p2
+        } else {
+            p1
+        }
+    }
+    fn get_obj_attr(&self, obj_index: usize) -> Object {
+        self.obj_attr.get(&obj_index).unwrap().clone()
+    }
+}
+
+impl FIFO for ObjFIFO {
+    // must call before using, finds all objects that intersect
+    fn next_line(&mut self, memory: &Memory) {
+        self.screen_y = if self.initialized {
+            self.screen_y + 1
+        } else {
+            self.initialized = true;
+            self.screen_y
+        };
+        self.fifo.clear();
+        self.obj_attr.clear();
+
+        let mut line_pixels = [Pixel::new(0, PixelSource::Object(0)); SCREEN_WIDTH];
+
+        let lcdc = Graphics::get_lcdc(memory);
+
+        if get_flag(lcdc, OBJ_ENABLE_FLAG) {
+            // find all intersections
+            for obj_idx in 0..OBJ_COUNT {
+                let obj_address = OAM_ADDRESS + 4 * (obj_idx as Address);
+
+                let y_pos = memory.read_byte(obj_address) as usize;
+                let x_pos = memory.read_byte(obj_address + 1) as usize;
+                let tile_number = memory.read_byte(obj_address + 2) as Address;
+                let flag = memory.read_byte(obj_address + 3);
+
+                // TODO: modify for 16x8 objects
+                if y_pos <= self.screen_y + 16
+                    && self.screen_y + 8 < y_pos
+                    && (x_pos <= 8 || x_pos + 8 < SCREEN_WIDTH)
+                {
+                    let tile_start_address = OBJ_TILE_ADDRESS + BYTES_PER_TILE * tile_number;
+                    let tile =
+                        Tile::fetch_tile(memory, PixelSource::Object(obj_idx), tile_start_address);
+
+                    let y = self.screen_y + 16 - y_pos;
+                    let xrange = if x_pos < 8 {
+                        8 - x_pos..8
+                    } else if x_pos > SCREEN_WIDTH {
+                        0..8 + SCREEN_WIDTH - x_pos
+                    } else {
+                        0..8
+                    };
+
+                    let tile_line = tile.get_range(xrange.clone(), y);
+                    for d in xrange {
+                        line_pixels[x_pos + d - 8] =
+                            Self::merge(line_pixels[x_pos + d - 8], tile_line[d]);
+                    }
+
+                    self.obj_attr.insert(
+                        obj_idx,
+                        Object::new(obj_idx, x_pos, y_pos, tile_number, flag),
+                    );
+                }
+
+                if self.obj_attr.len() >= 10 {
+                    break;
+                }
+            }
+        }
+
+        self.fifo.extend(line_pixels);
+    }
+
+    fn pop(&mut self, _memory: &Memory) -> Pixel {
+        let p = self.fifo.pop_front().unwrap();
+        p
+    }
+}
 
 /// PPU Mode with corresponding line number
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -315,6 +457,7 @@ pub struct Graphics {
     screen_buffer: [Byte; SCREEN_WIDTH * SCREEN_HEIGHT * 3],
     last_timestamp: u128,
     bg_fifo: BgFIFO,
+    obj_fifo: ObjFIFO,
     last_ppu_mode: PPUMode,
 }
 
@@ -355,6 +498,7 @@ impl Graphics {
             line_y: 0,
             last_timestamp: 0,
             bg_fifo: BgFIFO::new(),
+            obj_fifo: ObjFIFO::new(),
             last_ppu_mode: PPUMode::Mode1(153),
         }
     }
@@ -377,6 +521,7 @@ impl Graphics {
             // next cycle
             self.line_y = 0;
             self.bg_fifo = BgFIFO::new();
+            self.obj_fifo = ObjFIFO::new();
         }
 
         let clock_diff = timestamp - self.last_timestamp;
@@ -403,6 +548,7 @@ impl Graphics {
                 (PPUMode::Mode0(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
                     // render to screen if vblank
                     self.set_lyc(memory);
+                    self.set_vblank_int(memory);
                     let mut texture = self
                         .texture_creator
                         .create_texture_target(
@@ -447,11 +593,15 @@ impl Graphics {
     fn draw_scanline(&mut self, memory: &mut Memory) {
         // draw line to screen_buffer
         self.bg_fifo.next_line(memory);
+        self.obj_fifo.next_line(memory);
         for x in 0..SCREEN_WIDTH {
-            let val = self.bg_fifo.pop(memory);
-            let color = Self::bgcolor_ref_to_color(val.color_ref, memory);
+            let bg_pixel = self.bg_fifo.pop(memory);
+            let obj_pixel = self.obj_fifo.pop(memory);
+            let pixel = self.mix(bg_pixel, obj_pixel);
+            let color = self.pixel_to_color(pixel, memory);
 
             let lcdc = Self::get_lcdc(memory);
+
             let color = if get_flag(lcdc, LCDC_ENABLE_FLAG) {
                 color
             } else {
@@ -462,6 +612,37 @@ impl Graphics {
             self.screen_buffer[offset] = color.r;
             self.screen_buffer[offset + 1] = color.g;
             self.screen_buffer[offset + 2] = color.b;
+        }
+    }
+
+    fn pixel_to_color(&self, pixel: Pixel, memory: &mut Memory) -> Color {
+        let palette = match pixel.pixel_source {
+            PixelSource::Background => memory.read_byte(BG_PALETTE_ADDRESS),
+            PixelSource::Object(o) => {
+                let obj_flag = self.obj_fifo.get_obj_attr(o).flag;
+                let palette = if get_flag(obj_flag, OBJ_PALETTE_FLAG) {
+                    memory.read_byte(OBP1_ADDRESS)
+                } else {
+                    memory.read_byte(OBP0_ADDRESS)
+                };
+                // last one always 3 = black
+                palette | 0b11
+            }
+        };
+
+        let color_idx = match pixel.color_ref {
+            0 => palette & 0b11,
+            1 => (palette >> 2) & 0b11,
+            2 => (palette >> 4) & 0b11,
+            3 => (palette >> 6) & 0b11,
+            _ => panic!(),
+        };
+        match color_idx {
+            0 => WHITE,
+            1 => LIGHT_GREY,
+            2 => DARK_GREY,
+            3 => BLACK,
+            _ => panic!(),
         }
     }
 
@@ -525,7 +706,34 @@ impl Graphics {
         }
     }
 
-    fn get_lcdc(memory: &mut Memory) -> Byte {
+    /// Set the vblank interrupt
+    fn set_vblank_int(&self, memory: &mut Memory) {
+        let mut int_flag = memory.read_byte(CPU::INTERRUPT_FLAG_ADDRESS);
+        set_flag(&mut int_flag, CPU::VBLANK_FLAG);
+        memory.write_byte(CPU::INTERRUPT_FLAG_ADDRESS, int_flag);
+    }
+
+    fn get_lcdc(memory: &Memory) -> Byte {
         memory.read_byte(LCDC_ADDRESS)
+    }
+
+    // Mixes Background pixel with Object Pixel
+    fn mix(&self, bgp: Pixel, obp: Pixel) -> Pixel {
+        match (bgp.pixel_source, obp.pixel_source) {
+            (PixelSource::Background, PixelSource::Object(o)) => {
+                if obp.color_ref == 0 {
+                    // transparent
+                    bgp
+                } else {
+                    let obj_attr = self.obj_fifo.get_obj_attr(o);
+                    if get_flag(obj_attr.flag, OBJ_PRIORITY_FLAG) && bgp.color_ref >= 1 {
+                        bgp
+                    } else {
+                        obp
+                    }
+                }
+            }
+            _ => panic!("Mix usage: (Background pixel, object pixel)"),
+        }
     }
 }

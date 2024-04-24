@@ -1,6 +1,9 @@
 use log::info;
 
-use crate::utils::{address2string, bytes2word, Address, Byte, Word};
+use crate::{
+    graphics::OAM_ADDRESS,
+    utils::{address2string, bytes2word, Address, Byte, Word},
+};
 
 const BOOTROM_SIZE: usize = 0x100;
 const MEMORY_SIZE: usize = 0x10000;
@@ -100,11 +103,6 @@ impl Memory {
         self.memory[..BOOTROM_SIZE].copy_from_slice(&self.boot_rom);
     }
 
-    fn unload_boot(&mut self) {
-        info!("Unloading boot rom");
-        self.memory[..BOOTROM_SIZE].copy_from_slice(&self.rom[0][..BOOTROM_SIZE]);
-    }
-
     pub fn read_byte(&self, address: Address) -> Byte {
         let address = address as usize;
         self.memory[address]
@@ -119,8 +117,12 @@ impl Memory {
     pub fn write_byte(&mut self, address: Address, byte: Byte) {
         match address {
             UNLOAD_BOOT_ADDRESS => self.unload_boot(),
-            DMA_ADDRESS => unimplemented!(),
+            DMA_ADDRESS => self.dma(byte),
             _ => (),
+        }
+
+        if address >= 0xFE00 && address <= 0xFE9F {
+            println!("{} {}", address2string(address), byte);
         }
 
         let address = address as usize;
@@ -174,6 +176,19 @@ impl Memory {
     pub fn get_ram_size_rom(&self, rom: &Vec<Byte>) -> usize {
         let ram_size = rom[RAM_SIZE_ADDRESS as usize].into();
         return ram_size;
+    }
+
+    fn unload_boot(&mut self) {
+        info!("Unloading boot rom");
+        self.memory[..BOOTROM_SIZE].copy_from_slice(&self.rom[0][..BOOTROM_SIZE]);
+    }
+
+    fn dma(&mut self, byte: Byte) {
+        let size = 0x100;
+        let src = bytes2word(0x00, byte) as usize;
+
+        self.memory
+            .copy_within(src..(src + size), OAM_ADDRESS as usize);
     }
 
     /// Wrapping add value to address
