@@ -158,7 +158,7 @@ impl Memory {
         match rom_type {
             0x00 => CartridgeType::RomOnly,
             0x01 => CartridgeType::MBC1,
-            _ => unimplemented!(),
+            _ => unimplemented!("Rom type {:#04X?}", rom_type),
         }
     }
 

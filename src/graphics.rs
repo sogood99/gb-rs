@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::{hash_map::Entry, HashMap, VecDeque},
     ops::Range,
 };
 
@@ -266,26 +266,26 @@ impl BgFIFO {
             let fp = PixelPos { x: fx, y: fy };
             let tile_pos = fp.to_tile();
 
-            let tile = if let Some(t) = self.tile_cache.get(&tile_pos) {
-                t
-            } else {
-                let tile_idx = tile_pos.i + tile_pos.j * 32;
-                let tile_num_address = map_address + (tile_idx as Address);
-                let tile_num = memory.read_byte(tile_num_address);
-                let tile_start_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
-                    0x8000 + BYTES_PER_TILE * (tile_num as Address)
-                } else {
-                    let res = 0x9000 + (BYTES_PER_TILE as i32) * ((tile_num as i8) as i32);
-                    res as Address
-                };
+            let tile = match self.tile_cache.entry(tile_pos) {
+                Entry::Occupied(occ) => occ.into_mut(),
+                Entry::Vacant(vacant) => {
+                    let tile_idx = tile_pos.i + tile_pos.j * 32;
+                    let tile_num_address = map_address + (tile_idx as Address);
+                    let tile_num = memory.read_byte(tile_num_address);
+                    let tile_start_address = if get_flag(lcdc, BGW_TILES_DATA_FLAG) {
+                        0x8000 + BYTES_PER_TILE * (tile_num as Address)
+                    } else {
+                        let res = 0x9000 + (BYTES_PER_TILE as i32) * ((tile_num as i8) as i32);
+                        res as Address
+                    };
 
-                let tile = Tile::fetch_tile(
-                    memory,
-                    PixelSource::Background(window_enabled),
-                    tile_start_address,
-                );
-                self.tile_cache.insert(tile_pos, tile);
-                self.tile_cache.get(&tile_pos).unwrap()
+                    let tile = Tile::fetch_tile(
+                        memory,
+                        PixelSource::Background(window_enabled),
+                        tile_start_address,
+                    );
+                    vacant.insert(tile)
+                }
             };
 
             let (tx, ty) = (fp.x % 8, fp.y % 8);

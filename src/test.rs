@@ -1,7 +1,10 @@
 #[cfg(test)]
 mod tests {
     use crate::clock::Clock;
-    use crate::cpu::{Condition, Instruction, Register, Register16, SizedInstruction, CPU};
+    use crate::cpu::{
+        Condition, Instruction, Register, Register16, SizedInstruction, CARRY_FLAG, CPU,
+        HALF_CARRY_FLAG, SUBTRACT_FLAG, ZERO_FLAG,
+    };
     use crate::memory::Memory;
 
     #[test]
