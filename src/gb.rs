@@ -138,7 +138,7 @@ impl GameBoy {
         loop {
             // poll every 0.1s
             if let Some(ref mut graphics) = self.graphics {
-                if last_poll_time.elapsed().as_millis() > 100 {
+                if last_poll_time.elapsed().as_millis() > 50 {
                     for event in graphics.event_pump.poll_iter() {
                         match event {
                             Event::Quit { .. }
