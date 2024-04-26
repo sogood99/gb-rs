@@ -43,14 +43,16 @@ jobs:
     - name: Build
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
+        export LIBRARY_PATH="$LIBRARY_PATH:/usr/local/lib"
         cargo build --verbose
     - name: Test
       run: |
         export PATH="$HOME/.cargo/bin:$PATH"
+        export LIBRARY_PATH="$LIBRARY_PATH:/usr/local/lib"
         cargo test --verbose
       
   test_Windows:
-    runs-on: windows-2016
+    runs-on: windows-latest
     
     steps:
     - uses: actions/checkout@v1
