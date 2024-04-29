@@ -55,6 +55,7 @@ impl Debugger {
         self.pause = false;
     }
 
+    #[allow(dead_code)]
     fn add_breakpoint(&mut self, breakpoint: Breakpoint) {
         self.breakpoints.insert(breakpoint);
     }

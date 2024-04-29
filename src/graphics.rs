@@ -70,8 +70,12 @@ const WHITE: Color = Color::RGB(255, 255, 255);
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum PixelSource {
     /// When background is disabled
-    Background(bool),
-    Object(usize), // object number
+    Background {
+        enabled: bool,
+    },
+    Object {
+        number: usize,
+    }, // object number
 }
 
 #[derive(Clone, Copy)]
@@ -281,7 +285,9 @@ impl BgFIFO {
 
                     let tile = Tile::fetch_tile(
                         memory,
-                        PixelSource::Background(window_enabled),
+                        PixelSource::Background {
+                            enabled: window_enabled,
+                        },
                         tile_start_address,
                     );
                     vacant.insert(tile)
@@ -392,7 +398,7 @@ impl FIFO for ObjFIFO {
         self.obj_attr.clear();
         self.lcdc = Graphics::get_lcdc(memory);
 
-        let mut line_pixels = [Pixel::new(0, PixelSource::Object(0)); SCREEN_WIDTH];
+        let mut line_pixels = [Pixel::new(0, PixelSource::Object { number: 0 }); SCREEN_WIDTH];
 
         if get_flag(self.lcdc, OBJ_ENABLE_FLAG) {
             // find all intersections
@@ -410,8 +416,11 @@ impl FIFO for ObjFIFO {
                     && !(x_pos == 0 || x_pos >= 168)
                 {
                     let tile_start_address = OBJ_TILE_ADDRESS + BYTES_PER_TILE * tile_number;
-                    let mut tile =
-                        Tile::fetch_tile(memory, PixelSource::Object(obj_idx), tile_start_address);
+                    let mut tile = Tile::fetch_tile(
+                        memory,
+                        PixelSource::Object { number: obj_idx },
+                        tile_start_address,
+                    );
 
                     if get_flag(flag, OBJ_XFLIP_FLAG) {
                         tile.flip_x();
@@ -460,22 +469,22 @@ impl FIFO for ObjFIFO {
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PPUMode {
     /// Horizontal BLANK
-    Mode0(usize),
+    Mode0 { line: usize },
     /// Vertical BLANK
-    Mode1(usize),
+    Mode1 { line: usize },
     /// OAM Scan
-    Mode2(usize),
+    Mode2 { line: usize },
     /// Drawing Pixels
-    Mode3(usize),
+    Mode3 { line: usize },
 }
 
 impl PPUMode {
     fn to_num(&self) -> Byte {
         match self {
-            Self::Mode0(_) => 0,
-            Self::Mode1(_) => 1,
-            Self::Mode2(_) => 2,
-            Self::Mode3(_) => 3,
+            Self::Mode0 { .. } => 0,
+            Self::Mode1 { .. } => 1,
+            Self::Mode2 { .. } => 2,
+            Self::Mode3 { .. } => 3,
         }
     }
 }
@@ -534,7 +543,7 @@ impl Graphics {
             last_timestamp: 0,
             bg_fifo: BgFIFO::new(),
             obj_fifo: ObjFIFO::new(),
-            last_ppu_mode: PPUMode::Mode1(153),
+            last_ppu_mode: PPUMode::Mode1 { line: 153 },
         }
     }
 
@@ -565,22 +574,24 @@ impl Graphics {
         if self.last_ppu_mode != current_ppu_mode {
             // PPU Mode transitions
             match (self.last_ppu_mode, current_ppu_mode) {
-                (PPUMode::Mode1(l1), PPUMode::Mode2(l2)) if l1 == 153 && l2 == 0 => {
+                (PPUMode::Mode1 { line: l1 }, PPUMode::Mode2 { line: l2 })
+                    if l1 == 153 && l2 == 0 =>
+                {
                     // new frame
                     self.set_lyc(memory);
                 }
-                (PPUMode::Mode2(l1), PPUMode::Mode3(l2)) if l1 == l2 => {
+                (PPUMode::Mode2 { line: l1 }, PPUMode::Mode3 { line: l2 }) if l1 == l2 => {
                     // draw scanline
                     self.draw_scanline(memory);
                 }
-                (PPUMode::Mode3(l1), PPUMode::Mode0(l2)) if l1 == l2 => {
+                (PPUMode::Mode3 { line: l1 }, PPUMode::Mode0 { line: l2 }) if l1 == l2 => {
                     // finish draw pixel to hblank
                 }
-                (PPUMode::Mode0(l1), PPUMode::Mode2(l2)) if l1 + 1 == l2 => {
+                (PPUMode::Mode0 { line: l1 }, PPUMode::Mode2 { line: l2 }) if l1 + 1 == l2 => {
                     // newline
                     self.set_lyc(memory);
                 }
-                (PPUMode::Mode0(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
+                (PPUMode::Mode0 { line: l1 }, PPUMode::Mode1 { line: l2 }) if l1 + 1 == l2 => {
                     // render to screen if vblank
                     self.set_lyc(memory);
                     self.set_vblank_int(memory);
@@ -598,7 +609,7 @@ impl Graphics {
                     self.canvas.copy(&texture, None, None).unwrap();
                     self.canvas.present();
                 }
-                (PPUMode::Mode1(l1), PPUMode::Mode1(l2)) if l1 + 1 == l2 => {
+                (PPUMode::Mode1 { line: l1 }, PPUMode::Mode1 { line: l2 }) if l1 + 1 == l2 => {
                     // newline in vblank mode
                     self.set_lyc(memory);
                 }
@@ -615,13 +626,13 @@ impl Graphics {
     fn get_mode(&self, clock_diff: u128) -> PPUMode {
         assert!(clock_diff <= SCANLINE_CYCLES);
         if self.line_y >= 144 {
-            PPUMode::Mode1(self.line_y)
+            PPUMode::Mode1 { line: self.line_y }
         } else if clock_diff <= 20 {
-            PPUMode::Mode2(self.line_y)
+            PPUMode::Mode2 { line: self.line_y }
         } else if clock_diff < 77 {
-            PPUMode::Mode3(self.line_y)
+            PPUMode::Mode3 { line: self.line_y }
         } else {
-            PPUMode::Mode0(self.line_y)
+            PPUMode::Mode0 { line: self.line_y }
         }
     }
 
@@ -652,17 +663,17 @@ impl Graphics {
 
     fn pixel_to_color(&self, pixel: Pixel, memory: &mut Memory) -> Color {
         let palette = match pixel.pixel_source {
-            PixelSource::Background(b) => {
+            PixelSource::Background { enabled } => {
                 let palette = memory.read_byte(BG_PALETTE_ADDRESS);
-                if b {
+                if enabled {
                     palette
                 } else {
                     // background is diabled, just use black
                     0xFF
                 }
             }
-            PixelSource::Object(o) => {
-                let obj_flag = self.obj_fifo.get_obj_attr(o).flag;
+            PixelSource::Object { number } => {
+                let obj_flag = self.obj_fifo.get_obj_attr(number).flag;
                 let palette = if get_flag(obj_flag, OBJ_PALETTE_FLAG) {
                     memory.read_byte(OBP1_ADDRESS)
                 } else {
@@ -697,13 +708,13 @@ impl Graphics {
         // interrupt
         let mut int_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);
         match ppu_mode {
-            PPUMode::Mode0(_) if get_flag(stat_flag, MODE0_INT_FLAG) => {
+            PPUMode::Mode0 { .. } if get_flag(stat_flag, MODE0_INT_FLAG) => {
                 set_flag(&mut int_flag, LCD_FLAG);
             }
-            PPUMode::Mode1(_) if get_flag(stat_flag, MODE1_INT_FLAG) => {
+            PPUMode::Mode1 { .. } if get_flag(stat_flag, MODE1_INT_FLAG) => {
                 set_flag(&mut int_flag, LCD_FLAG);
             }
-            PPUMode::Mode2(_) if get_flag(stat_flag, MODE2_INT_FLAG) => {
+            PPUMode::Mode2 { .. } if get_flag(stat_flag, MODE2_INT_FLAG) => {
                 set_flag(&mut int_flag, LCD_FLAG);
             }
             _ => (),
@@ -744,7 +755,7 @@ impl Graphics {
     // Mixes Background pixel with Object Pixel
     fn mix(&self, bgp: Pixel, obp: Pixel) -> Pixel {
         match (bgp.pixel_source, obp.pixel_source) {
-            (PixelSource::Background(b), PixelSource::Object(o)) => {
+            (PixelSource::Background { enabled: b }, PixelSource::Object { number: o }) => {
                 if obp.color_ref == 0 {
                     // transparent
                     bgp
