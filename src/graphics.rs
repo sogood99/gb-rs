@@ -116,7 +116,7 @@ impl PixelPos {
     fn new() -> PixelPos {
         PixelPos { x: 0, y: 0 }
     }
-    fn to_tile(&self) -> TilePos {
+    fn to_tile(self) -> TilePos {
         TilePos {
             i: self.x / 8,
             j: self.y / 8,
@@ -381,7 +381,7 @@ impl ObjFIFO {
         }
     }
     fn get_obj_attr(&self, obj_index: usize) -> Object {
-        self.obj_attr.get(&obj_index).unwrap().clone()
+        *self.obj_attr.get(&obj_index).unwrap()
     }
 }
 
@@ -479,7 +479,7 @@ pub enum PPUMode {
 }
 
 impl PPUMode {
-    fn to_num(&self) -> Byte {
+    fn get_num(&self) -> Byte {
         match self {
             Self::Mode0 { .. } => 0,
             Self::Mode1 { .. } => 1,
@@ -506,10 +506,7 @@ pub struct Graphics {
 }
 
 impl Graphics {
-    pub fn new() -> Self {
-        // Initialize SDL
-        let context = sdl2::init().unwrap();
-
+    pub fn new(context: &Sdl) -> Self {
         // Set hint for vsync
         sdl2::hint::set("SDL_HINT_RENDER_VSYNC", "1");
 
@@ -533,7 +530,7 @@ impl Graphics {
         let timer = context.timer().unwrap();
 
         Self {
-            context,
+            context: context.clone(),
             canvas,
             event_pump,
             texture_creator,
@@ -557,7 +554,7 @@ impl Graphics {
 
         if clock_diff >= SCANLINE_CYCLES {
             // to next line
-            self.last_timestamp = self.last_timestamp + SCANLINE_CYCLES;
+            self.last_timestamp += SCANLINE_CYCLES;
             self.line_y += 1;
         }
 
@@ -703,7 +700,7 @@ impl Graphics {
     /// Set ppu stat flag and LCD interrupt flag
     fn set_ppu(&self, ppu_mode: PPUMode, memory: &mut Memory) {
         let stat_flag = memory.read_byte(LCD_STATUS_ADDRESS) & !0b11;
-        let new_stat_flag = stat_flag | ppu_mode.to_num();
+        let new_stat_flag = stat_flag | ppu_mode.get_num();
 
         // interrupt
         let mut int_flag = memory.read_byte(INTERRUPT_FLAG_ADDRESS);

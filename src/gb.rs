@@ -7,6 +7,7 @@ use sdl2::{
 };
 
 use crate::{
+    audio::Audio,
     clock::Clock,
     cpu::{Instruction, SizedInstruction, CPU},
     graphics::Graphics,
@@ -19,6 +20,7 @@ pub struct GameBoy {
     cpu: CPU,
     memory: Memory,
     graphics: Option<Graphics>,
+    audio: Option<Audio>,
     clock: Clock,
     joypad: Joypad,
     dbg: Debugger,
@@ -89,12 +91,20 @@ impl Debugger {
 }
 
 impl GameBoy {
-    pub fn new(graphics_enabled: bool) -> Self {
+    pub fn new(graphics_enabled: bool, audio_enabled: bool) -> Self {
+        // Initialize SDL
+        let context = sdl2::init().unwrap();
+
         GameBoy {
             cpu: CPU::new(),
             memory: Memory::new(),
             graphics: if graphics_enabled {
-                Some(Graphics::new())
+                Some(Graphics::new(&context))
+            } else {
+                None
+            },
+            audio: if audio_enabled {
+                Some(Audio::new(&context))
             } else {
                 None
             },

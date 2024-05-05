@@ -153,7 +153,7 @@ impl Memory {
     }
 
     /// Get cartridge type given rom (in vec)
-    pub fn get_cartridge_type_rom(&self, rom: &Vec<Byte>) -> CartridgeType {
+    pub fn get_cartridge_type_rom(&self, rom: &[Byte]) -> CartridgeType {
         let rom_type = rom[MBC_TYPE_ADDRESS as usize];
         match rom_type {
             0x00 => CartridgeType::RomOnly,
@@ -163,15 +163,15 @@ impl Memory {
     }
 
     /// Get rom size
-    pub fn get_rom_size_rom(&self, rom: &Vec<Byte>) -> usize {
+    pub fn get_rom_size_rom(&self, rom: &[Byte]) -> usize {
         let rom_size = rom[ROM_SIZE_ADDRESS as usize].into();
-        return rom_size;
+        rom_size
     }
 
     /// Get ram size
-    pub fn get_ram_size_rom(&self, rom: &Vec<Byte>) -> usize {
+    pub fn get_ram_size_rom(&self, rom: &[Byte]) -> usize {
         let ram_size = rom[RAM_SIZE_ADDRESS as usize].into();
-        return ram_size;
+        ram_size
     }
 
     fn unload_boot(&mut self) {

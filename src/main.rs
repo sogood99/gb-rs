@@ -30,7 +30,14 @@ fn main() -> Result<(), String> {
         .arg(
             Arg::with_name("no_graphics")
                 .long("no-graphics")
-                .help("Enables graphics")
+                .help("Disables graphics")
+                .takes_value(false)
+                .required(false), // Set default value to true
+        )
+        .arg(
+            Arg::with_name("no_audio")
+                .long("no-audio")
+                .help("Disables audio")
                 .takes_value(false)
                 .required(false), // Set default value to true
         )
@@ -59,8 +66,9 @@ fn main() -> Result<(), String> {
     };
 
     let graphics_enabled = !matches.is_present("no_graphics");
+    let audio_enabled = !matches.is_present("no_audio");
 
-    let mut gameboy = GameBoy::new(graphics_enabled);
+    let mut gameboy = GameBoy::new(graphics_enabled, audio_enabled);
     gameboy.load_boot(boot_bin);
     gameboy.load_rom(rom_file);
     gameboy.run();

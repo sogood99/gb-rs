@@ -1,10 +1,11 @@
 use crate::{
-    cpu::{CPU, INTERRUPT_FLAG_ADDRESS, TIMER_FLAG},
+    cpu::{INTERRUPT_FLAG_ADDRESS, TIMER_FLAG},
     memory::Memory,
     utils::{get_flag, set_flag},
     utils::{Address, Byte},
 };
 
+#[derive(Default)]
 pub struct Clock {
     div_counter: Byte,
     timer_counter: u32,

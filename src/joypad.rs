@@ -5,7 +5,7 @@ use sdl2::keyboard::Keycode;
 use crate::{
     cpu::{INTERRUPT_FLAG_ADDRESS, JOYPAD_FLAG},
     memory::Memory,
-    utils::{byte2stringbit, get_flag, set_flag, Address, Byte},
+    utils::{get_flag, set_flag, Address, Byte},
 };
 
 // ----- joypad controls -----
@@ -43,13 +43,14 @@ impl Joypad {
             ]),
         }
     }
+
     /// Update button register
     pub fn update(&mut self, memory: &mut Memory) {
         let joypad_flags = memory.read_byte(JOYPAD_REGISTER_ADDRESS);
         let new_flags = if !get_flag(joypad_flags, DPAD_FLAG) {
             let mut flag = joypad_flags | 0xF;
             for dpad in [UP_BUTTON, DOWN_BUTTON, LEFT_BUTTON, RIGHT_BUTTON] {
-                if self.last_keys.contains(&self.code_keys.get(&dpad).unwrap()) {
+                if self.last_keys.contains(self.code_keys.get(&dpad).unwrap()) {
                     flag &= dpad;
                 }
             }
@@ -57,7 +58,7 @@ impl Joypad {
         } else if !get_flag(joypad_flags, BUTTONS_FLAG) {
             let mut flag = joypad_flags | 0xF;
             for btn in [A_BUTTON, B_BUTTON, SELECT_BUTTON, START_BUTTON] {
-                if self.last_keys.contains(&self.code_keys.get(&btn).unwrap()) {
+                if self.last_keys.contains(self.code_keys.get(&btn).unwrap()) {
                     flag &= btn;
                 }
             }

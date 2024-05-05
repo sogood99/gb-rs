@@ -74,7 +74,7 @@ pub fn get_flag(flag_byte: Byte, flag: Byte) -> bool {
 
 pub fn set_flag(flag_byte: &mut Byte, flag: Byte) {
     assert_eq!(flag.count_ones(), 1);
-    *flag_byte = *flag_byte | flag;
+    *flag_byte |= flag;
 }
 
 pub fn set_flag_ref(flag_byte: Byte, flag: Byte) -> Byte {
@@ -84,7 +84,7 @@ pub fn set_flag_ref(flag_byte: Byte, flag: Byte) -> Byte {
 
 pub fn reset_flag(flag_byte: &mut Byte, flag: Byte) {
     assert_eq!(flag.count_ones(), 1);
-    *flag_byte = *flag_byte & !flag;
+    *flag_byte &= !flag;
 }
 
 pub fn reset_all_flags(flag_byte: &mut Byte) {

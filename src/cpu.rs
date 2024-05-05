@@ -3,9 +3,7 @@ use log::{debug, info};
 use crate::{
     clock::Clock,
     memory::Memory,
-    utils::{
-        bytes2word, get_flag, reset_flag, set_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP,
-    },
+    utils::{bytes2word, get_flag, reset_flag, Address, Byte, ByteOP, SignedByte, Word, WordOP},
 };
 
 // ----- flags -----
@@ -56,7 +54,7 @@ impl Register {
             5 => Self::L,
             6 => Self::HL,
             7 => Self::A,
-            c @ _ => panic!("Unknown Register {} for code {}", c, code),
+            c => panic!("Unknown Register {} for code {}", c, code),
         }
     }
 
@@ -77,7 +75,7 @@ impl Register16 {
             2 => Self::HL,
             3 if sp => Self::SP,
             3 if !sp => Self::AF,
-            c @ _ => panic!("Unknown Register {} for code {}", c, code),
+            c => panic!("Unknown Register {} for code {}", c, code),
         }
     }
 }
@@ -564,15 +562,6 @@ impl SizedInstruction {
                 Instruction::CCF
             } else {
                 Instruction::SCF
-            };
-
-            (instruction, 1)
-        } else if Self::INC_DEC_RR.matches(opcode) {
-            let rr = Register16::get_rr(opcode >> 4, true);
-            let instruction = if opcode & (1 << 3) != 0 {
-                Instruction::DEC_RR(rr)
-            } else {
-                Instruction::INC_RR(rr)
             };
 
             (instruction, 1)
