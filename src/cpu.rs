@@ -1891,6 +1891,7 @@ impl CPU {
         if !self.get_ime() {
             return;
         }
+
         if flag_bytes != 0 {
             self.ime_disable();
             self.push_pc_stack(memory);

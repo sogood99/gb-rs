@@ -206,6 +206,13 @@ impl GameBoy {
                 self.memory.write_byte(0xff02, 0);
             }
 
+            // run audio
+            if let Some(ref mut audio) = self.audio {
+                if self.clock.get_timestamp() % 100 == 0 {
+                    audio.handle_audio(&mut self.memory, &self.clock);
+                }
+            }
+
             // render graphics
             if let Some(ref mut graphics) = self.graphics {
                 // non gb related keydowns
@@ -219,8 +226,6 @@ impl GameBoy {
                     last_time = std::time::Instant::now();
                 }
             }
-
-            // run audio
         }
     }
 }

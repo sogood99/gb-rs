@@ -1,11 +1,27 @@
 #[cfg(test)]
 mod tests {
+    use sdl2::keyboard::Keycode;
+
     use crate::clock::Clock;
     use crate::cpu::{
         Condition, Instruction, Register, Register16, SizedInstruction, CARRY_FLAG, CPU,
         HALF_CARRY_FLAG, SUBTRACT_FLAG, ZERO_FLAG,
     };
+    use crate::joypad::{
+        Joypad, A_BUTTON, BUTTONS_FLAG, B_BUTTON, DOWN_BUTTON, DPAD_FLAG, JOYPAD_REGISTER_ADDRESS,
+        LEFT_BUTTON, RIGHT_BUTTON, SELECT_BUTTON, START_BUTTON, UP_BUTTON,
+    };
     use crate::memory::Memory;
+
+    #[test]
+    fn memory() {
+        let mut memory = Memory::new();
+        let address = 0x234;
+        let byte = 0xfc;
+
+        memory.write_byte(address, byte);
+        assert_eq!(memory.read_byte(address), byte);
+    }
 
     #[test]
     fn decode_ldrr() {
@@ -1709,5 +1725,168 @@ mod tests {
         cpu.execute(&mut memory, &mut clock);
 
         assert_eq!(cpu.b, 0xCA);
+    }
+
+    #[test]
+    fn joypad_test_up() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !DPAD_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::W, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            UP_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_left() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !DPAD_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::A, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            LEFT_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_right() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !DPAD_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::D, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            RIGHT_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_down() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !DPAD_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::S, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            DOWN_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_a() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !BUTTONS_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::K, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            A_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_b() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !BUTTONS_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::J, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            B_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_select() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !BUTTONS_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::U, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            SELECT_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_start() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !BUTTONS_FLAG);
+
+        // Pressing some buttons and updating the joypad
+        joypad.handle_button(Keycode::I, true, &mut memory);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            START_BUTTON & 0x0F
+        );
+    }
+
+    #[test]
+    fn joypad_test_left_down_start() {
+        let mut memory = Memory::new();
+        let mut joypad = Joypad::new();
+
+        // test combination of buttons
+        joypad.handle_button(Keycode::A, true, &mut memory);
+        joypad.handle_button(Keycode::S, true, &mut memory);
+        joypad.handle_button(Keycode::I, true, &mut memory);
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !BUTTONS_FLAG);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            START_BUTTON & 0x0F
+        );
+
+        memory.write_byte(JOYPAD_REGISTER_ADDRESS, !DPAD_FLAG);
+        joypad.update(&mut memory);
+
+        assert_eq!(
+            memory.read_byte(JOYPAD_REGISTER_ADDRESS) & 0x0F,
+            LEFT_BUTTON & DOWN_BUTTON & 0x0F
+        );
     }
 }

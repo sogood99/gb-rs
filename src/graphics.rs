@@ -75,7 +75,7 @@ enum PixelSource {
     },
     Object {
         number: usize,
-    }, // object number
+    },
 }
 
 #[derive(Clone, Copy)]

@@ -9,7 +9,7 @@ fn main() -> Result<(), String> {
 
     let matches = App::new("gb-rs")
         .version("1.0")
-        .about("A simple program to read a ROM file and emulate it")
+        .about("A simple program to read a GameBoy ROM file and emulate it")
         .arg(
             Arg::with_name("rom_file")
                 .short('f')

@@ -5,6 +5,8 @@ use crate::{
     utils::{Address, Byte},
 };
 
+pub const CLOCK_FREQ: u32 = 4194304;
+
 #[derive(Default)]
 pub struct Clock {
     div_counter: Byte,
@@ -49,10 +51,10 @@ impl Clock {
                 1 => 262144,
                 2 => 65536,
                 3 => 16384,
-                _ => panic!("Logically cannot happen"),
+                _ => unreachable!(),
             };
 
-            while self.timer_counter >= 4194304 / frequency {
+            while self.timer_counter >= CLOCK_FREQ / frequency {
                 memory.wrapping_add(Self::TIMA_ADDRESS, 1);
 
                 if memory.read_byte(Self::TIMA_ADDRESS) == 0 {
@@ -65,7 +67,7 @@ impl Clock {
                     memory.write_byte(Self::TIMA_ADDRESS, tma);
                 }
 
-                self.timer_counter -= 4194304 / frequency;
+                self.timer_counter -= CLOCK_FREQ / frequency;
             }
         }
     }
